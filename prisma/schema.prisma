@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Restaurant {
+  id                     Int           @id @default(autoincrement())
+  slug                   String        @unique
+  name                   String
+  short_description      String?
+  cuisine               String?
+  address               String
+  images                String[]
+  operating_hours        Json
+  time_slot_length        Int
+  table_capacity         Json
+  allowed_booking_advance_days Int
+  policies              String?
+  is_deposit_required       Boolean
+  is_active             Boolean        @default(true)
+  created_at            DateTime       @default(now()) @db.Timestamptz
+  updated_at            DateTime       @default(now()) @db.Timestamptz
+  reservations         Reservation[]
+
+  @@index([slug])
+}
+
+model Reservation {
+  id                  Int          @id @default(autoincrement())
+  restaurant_id        Int
+  customer_id          String       @db.Uuid
+  customer_name        String?
+  customer_email       String?
+  customer_phone       String?
+  party_size          Int
+  date               DateTime      @db.Date
+  timeslot_start      DateTime      @db.Time
+  timeslot_end        DateTime      @db.Time
+  special_requests    String?
+  dietary_restrictions String?
+  special_occasions   String?
+  deposit_amount      Decimal?      @db.Decimal(10,2)
+  is_deposit_made        Boolean?
+  status             String        @default("new")
+  created_at          DateTime      @default(now()) @db.Timestamptz
+  updated_at          DateTime      @default(now()) @db.Timestamptz
+  restaurant         Restaurant    @relation(fields: [restaurant_id], references: [id])
+
+  @@index([restaurant_id, date])
+  @@index([customer_id])
+}
