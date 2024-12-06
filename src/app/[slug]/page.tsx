@@ -16,11 +16,13 @@ export async function generateStaticParams() {
     }));
 }
 
+type PageProps = {
+    params: Promise<{ slug: string }>;
+};
+
 export default async function RestaurantPage({
     params,
-}: {
-    params: { slug: string; };
-}) {
+}: PageProps) {
     const { slug } = await params;
     const restaurant = await getRestaurant(slug);
 
