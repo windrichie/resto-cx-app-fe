@@ -1,10 +1,9 @@
-// src/lib/actions/reservation.ts
 'use server'
 
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { v4 as uuidv4 } from 'uuid';
 
 const ReservationSchema = z.object({
     restaurantId: z.number(),
@@ -33,6 +32,26 @@ export type State = {
     message?: string | null;
 };
 
+async function getOrCreateCustomerId(email: string): Promise<string> {
+    // Try to find existing reservation with this email
+    const existingReservation = await prisma.reservation.findFirst({
+        where: {
+            customer_email: email
+        },
+        select: {
+            customer_id: true
+        }
+    });
+
+    // If found, return existing customer_id
+    if (existingReservation) {
+        return existingReservation.customer_id;
+    }
+
+    // If not found, generate new UUID
+    return uuidv4();
+}
+
 export async function createReservation(prevState: State, formData: FormData) {
     console.log(formData);
     const validatedFields = ReservationSchema.safeParse({
@@ -60,11 +79,13 @@ export async function createReservation(prevState: State, formData: FormData) {
     const data = validatedFields.data;
     console.log('Data being passed to Prisma:', data);
 
+    const customerId = await getOrCreateCustomerId(data.customerEmail);
+
     try {
         await prisma.reservation.create({
             data: {
                 restaurant_id: data.restaurantId,
-                customer_id: '98c3cb2d-8bf3-4842-aee1-9bd02c00731b', // You'll need to implement proper user authentication
+                customer_id: customerId,
                 customer_name: data.customerName,
                 customer_email: data.customerEmail,
                 customer_phone: data.customerPhone,
