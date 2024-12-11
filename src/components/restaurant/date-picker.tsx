@@ -1,4 +1,3 @@
-// src/components/restaurant/date-picker.tsx
 'use client'
 
 import { useState, useEffect } from 'react';
@@ -20,6 +19,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import ReservationForm from './reservation-form';
+import { generateTimeSlots } from '@/lib/utils/reservation';
+import { getReservations } from '@/lib/actions/reservation';
+import { ReservationForTimeSlotGen } from '@/types';
+import { convertToLocalTime } from '@/lib/utils/timezone';
 
 interface TimeSlot {
   start: string;
@@ -29,50 +32,77 @@ interface TimeSlot {
 
 interface DatePickerProps {
   restaurantId: number;
+  restaurantName: string;
   timeSlotLength: number;
   operatingHours: Record<string, string>;
   allowedBookingAdvance: number;
   tableCapacity: Record<string, number>;
+  restaurantTimezone: string;
 }
 
 export default function DatePicker({
   restaurantId,
+  restaurantName,
   timeSlotLength,
   operatingHours,
   allowedBookingAdvance,
   tableCapacity,
+  restaurantTimezone
 }: DatePickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [partySize, setPartySize] = useState<number>(2);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
 
   const maxDate = addDays(new Date(), allowedBookingAdvance);
 
-  // Function to generate time slots based on operating hours
-  const generateTimeSlots = () => {
-    const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = operatingHours[dayOfWeek];
+  // Fetch all reservations once during component mount
+  useEffect(() => {
+    async function fetchAllReservations() {
+      try {
+        const endDate = addDays(new Date(), allowedBookingAdvance);
+        const { reservations, error } = await getReservations(restaurantId, new Date(), endDate);
 
-    if (!hours) {
-      setTimeSlots([]);
-      return;
+        if (error || !reservations) {
+          console.error('Error:', error);
+          return;
+        }
+
+        setAllReservations(reservations);
+      } catch (error) {
+        console.error('Error fetching reservations:', error);
+      }
     }
 
-    // Implementation of time slot generation logic
-    // This is a placeholder - you'll need to implement the actual logic
-    const dummySlots: TimeSlot[] = [
-      { start: '12:00 PM', end: '1:00 PM', available: true },
-      { start: '1:00 PM', end: '2:00 PM', available: true },
-      // Add more slots as needed
-    ];
+    fetchAllReservations();
+  }, [restaurantId, allowedBookingAdvance]);
 
-    setTimeSlots(dummySlots);
-  };
-
+  // Generate time slots when date or party size changes
   useEffect(() => {
-    generateTimeSlots();
-  }, [selectedDate, partySize]);
+    // Filter reservations for selected date
+    const dateReservations = allReservations.filter(reservation => {
+      // convert to restaurant time zone
+      const resDateInRestaurantTz = convertToLocalTime(new Date(reservation.date), restaurantTimezone)
+      // Compare only the date portion
+      return startOfDay(resDateInRestaurantTz).getTime() ===
+        startOfDay(selectedDate).getTime();
+    });
+
+    console.log('after date filter dateReservations: ', dateReservations);
+
+    const slots = generateTimeSlots(
+      selectedDate,
+      operatingHours,
+      timeSlotLength,
+      dateReservations,
+      tableCapacity,
+      partySize,
+      restaurantTimezone
+    );
+
+    setTimeSlots(slots);
+  }, [selectedDate, partySize, allReservations, operatingHours, timeSlotLength, tableCapacity]);
 
   return (
     <div className="space-y-4">
@@ -146,6 +176,9 @@ export default function DatePicker({
           selectedTime={selectedSlot.start}
           partySize={partySize}
           restaurantId={restaurantId}
+          restaurantName={restaurantName}
+          timeSlotLength={timeSlotLength}
+          restaurantTimezone={restaurantTimezone}
         />
       )}
     </div>

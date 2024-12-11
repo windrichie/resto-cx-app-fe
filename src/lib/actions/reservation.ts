@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
+import { startOfDay, endOfDay } from 'date-fns';
+import { TZDate } from '@date-fns/tz';
+import { ReservationForTimeSlotGen } from '@/types';
+import RestaurantDetails from '@/components/restaurant-details';
 
 const ReservationSchema = z.object({
     restaurantId: z.number(),
@@ -12,12 +16,14 @@ const ReservationSchema = z.object({
     customerPhone: z.string().min(8, 'Invalid phone number'),
     partySize: z.number().min(1),
     date: z.date(),
+    timeSlotLength: z.number(),
     timeSlotStart: z.string(),
     dietaryRestrictions: z.string().optional(),
     otherDietaryRestrictions: z.string().optional(),
     specialOccasion: z.string().optional(),
     otherSpecialOccasion: z.string().optional(),
     specialRequests: z.string().optional(),
+    restaurantTimezone: z.string()
 });
 
 export type State = {
@@ -31,6 +37,11 @@ export type State = {
     };
     message?: string | null;
 };
+
+interface GetReservationsResponse {
+    reservations: ReservationForTimeSlotGen[];
+    error?: string;
+}
 
 async function getOrCreateCustomerId(email: string): Promise<string> {
     // Try to find existing reservation with this email
@@ -61,15 +72,18 @@ export async function createReservation(prevState: State, formData: FormData) {
         customerPhone: formData.get('customerPhone'),
         partySize: parseInt(formData.get('partySize') as string),
         date: new Date(formData.get('date') as string),
+        timeSlotLength: parseInt(formData.get('timeSlotLength') as string),
         timeSlotStart: formData.get('timeSlotStart'),
         dietaryRestrictions: formData.get('dietaryRestrictions'),
         otherDietaryRestrictions: formData.get('otherDietaryRestrictions'),
         specialOccasion: formData.get('specialOccasion'),
         otherSpecialOccasion: formData.get('otherSpecialOccasion'),
         specialRequests: formData.get('specialRequests'),
+        restaurantTimezone: formData.get('restaurantTimezone')
     });
 
     if (!validatedFields.success) {
+        console.log(validatedFields.error.flatten())
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: 'Missing Fields. Failed to Create Reservation.',
@@ -81,6 +95,32 @@ export async function createReservation(prevState: State, formData: FormData) {
 
     const customerId = await getOrCreateCustomerId(data.customerEmail);
 
+    // Calculate reservation start and end times with the actual date
+    const reservationDate = data.date;
+    const [timeWithoutPeriod, period] = data.timeSlotStart.split(' ');
+    const [hours, minutes] = timeWithoutPeriod.split(':');
+    let hour24 = parseInt(hours);
+
+    if (period === 'PM' && hour24 !== 12) {
+        hour24 += 12;
+    } else if (period === 'AM' && hour24 === 12) {
+        hour24 = 0;
+    }
+
+    const startDateTime = new TZDate(
+        reservationDate.getFullYear(),
+        reservationDate.getMonth(),
+        reservationDate.getDate(),
+        hour24,
+        parseInt(minutes),
+        0,
+        data.restaurantTimezone
+    )
+    console.log('startDateTime: ', startDateTime);
+
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setMinutes(startDateTime.getMinutes() + data.timeSlotLength);
+
     try {
         await prisma.reservation.create({
             data: {
@@ -91,8 +131,8 @@ export async function createReservation(prevState: State, formData: FormData) {
                 customer_phone: data.customerPhone,
                 party_size: data.partySize,
                 date: data.date,
-                timeslot_start: new Date(`${data.date.toDateString()} ${data.timeSlotStart}`),
-                timeslot_end: new Date(`${data.date.toDateString()} ${data.timeSlotStart}`), // Calculate based on slot length
+                timeslot_start: startDateTime,
+                timeslot_end: endDateTime,
                 dietary_restrictions: data.dietaryRestrictions === 'other'
                     ? data.otherDietaryRestrictions
                     : data.dietaryRestrictions,
@@ -118,3 +158,39 @@ export async function createReservation(prevState: State, formData: FormData) {
         };
     }
 }
+
+export async function getReservations(
+    restaurantId: number, startDate: Date, endDate: Date
+): Promise<GetReservationsResponse> {
+    try {
+        const reservations = await prisma.reservation.findMany({
+            where: {
+                restaurant_id: restaurantId,
+                date: {
+                    gte: startOfDay(startDate),
+                    lte: endOfDay(endDate),
+                },
+                status: {
+                    in: ['new', 'confirmed']
+                }
+            },
+            select: {
+                date: true,
+                timeslot_start: true,
+                timeslot_end: true,
+                party_size: true,
+            },
+            orderBy: {
+                timeslot_start: 'asc'
+            }
+        }) as ReservationForTimeSlotGen[];
+
+        console.log('prisma reservations: ', reservations);
+
+        return { reservations };
+    } catch (error) {
+        console.error('Error fetching reservations:', error);
+        return { reservations: [], error: 'Failed to fetch reservations' };
+    }
+}
+

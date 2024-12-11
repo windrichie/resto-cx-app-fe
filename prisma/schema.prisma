@@ -3,53 +3,54 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("PRISMA_URL")
+  provider  = "postgresql"
+  url       = env("PRISMA_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model Restaurant {
-  id                     Int           @id @default(autoincrement())
-  slug                   String        @unique
-  name                   String
-  short_description      String?
-  cuisine               String?
-  address               String
-  images                String[]
-  operating_hours        Json
-  time_slot_length        Int
-  table_capacity         Json
+  id                           Int           @id @default(autoincrement())
+  slug                         String        @unique
+  name                         String
+  cuisine                      String?
+  address                      String
+  images                       String[]
+  policies                     String?
   allowed_booking_advance_days Int
-  policies              String?
-  is_deposit_required       Boolean
-  is_active             Boolean        @default(true)
-  created_at            DateTime       @default(now()) @db.Timestamptz
-  updated_at            DateTime       @default(now()) @db.Timestamptz
-  reservations         Reservation[]
+  created_at                   DateTime      @default(now()) @db.Timestamptz(6)
+  is_active                    Boolean       @default(true)
+  is_deposit_required          Boolean
+  operating_hours              Json
+  short_description            String?
+  table_capacity               Json
+  time_slot_length             Int
+  updated_at                   DateTime      @default(now()) @db.Timestamptz(6)
+  reservations                 Reservation[]
+  timezone                     String
 
   @@index([slug])
 }
 
 model Reservation {
-  id                  Int          @id @default(autoincrement())
-  restaurant_id        Int
-  customer_id          String       @db.Uuid
-  customer_name        String?
+  id                   Int        @id @default(autoincrement())
+  date                 DateTime   @db.Timestamptz(6)
+  status               String     @default("new")
+  created_at           DateTime   @default(now()) @db.Timestamptz(6)
   customer_email       String?
+  customer_id          String     @db.Uuid
+  customer_name        String?
   customer_phone       String?
-  party_size          Int
-  date               DateTime      @db.Date
-  timeslot_start      DateTime      @db.Time
-  timeslot_end        DateTime      @db.Time
-  special_requests    String?
+  deposit_amount       Decimal?   @db.Decimal(10, 2)
   dietary_restrictions String?
-  special_occasions   String?
-  deposit_amount      Decimal?      @db.Decimal(10,2)
-  is_deposit_made        Boolean?
-  status             String        @default("new")
-  created_at          DateTime      @default(now()) @db.Timestamptz
-  updated_at          DateTime      @default(now()) @db.Timestamptz
-  restaurant         Restaurant    @relation(fields: [restaurant_id], references: [id])
+  is_deposit_made      Boolean?
+  party_size           Int
+  restaurant_id        Int
+  special_occasions    String?
+  special_requests     String?
+  updated_at           DateTime   @default(now()) @db.Timestamptz(6)
+  timeslot_end         DateTime   @db.Timestamptz(6)
+  timeslot_start       DateTime   @db.Timestamptz(6)
+  restaurant           Restaurant @relation(fields: [restaurant_id], references: [id])
 
   @@index([restaurant_id, date])
   @@index([customer_id])

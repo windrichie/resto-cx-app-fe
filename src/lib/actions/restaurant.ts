@@ -8,7 +8,6 @@ export async function getRestaurant(slug: string): Promise<Restaurant | null> {
     });
 
     return restaurant;
-
 }
 
 export async function getAllRestaurants() {
