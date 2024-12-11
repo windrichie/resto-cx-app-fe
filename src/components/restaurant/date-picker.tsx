@@ -22,7 +22,7 @@ import ReservationForm from './reservation-form';
 import { generateTimeSlots } from '@/lib/utils/reservation';
 import { getReservations } from '@/lib/actions/reservation';
 import { ReservationForTimeSlotGen } from '@/types';
-import { convertToLocalTime } from '@/lib/utils/timezone';
+import { convertToLocalTime, convertToUtc } from '@/lib/utils/timezone';
 
 interface TimeSlot {
   start: string;
@@ -56,13 +56,15 @@ export default function DatePicker({
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
 
   const maxDate = addDays(new Date(), allowedBookingAdvance);
+  const currentDateInUtc = convertToUtc(new Date(), restaurantTimezone);
 
   // Fetch all reservations once during component mount
   useEffect(() => {
     async function fetchAllReservations() {
       try {
-        const endDate = addDays(new Date(), allowedBookingAdvance);
-        const { reservations, error } = await getReservations(restaurantId, new Date(), endDate);
+        console.log('currentDateInUtc: ', currentDateInUtc);
+        console.log('startOfDay(currentDateInUtc): ', startOfDay(currentDateInUtc));
+        const { reservations, error } = await getReservations(restaurantId, currentDateInUtc, maxDate);
 
         if (error || !reservations) {
           console.error('Error:', error);

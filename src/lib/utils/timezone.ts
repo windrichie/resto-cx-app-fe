@@ -1,6 +1,6 @@
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
-export function convertToRestaurantTime(date: Date, restaurantTimezone: string): Date {
+export function convertToUtc(date: Date, restaurantTimezone: string): Date {
     return fromZonedTime(date, restaurantTimezone);
 }
 
