@@ -84,6 +84,8 @@ export default function DatePicker({
     const dateReservations = allReservations.filter(reservation => {
       // convert to restaurant time zone
       const resDateInRestaurantTz = convertToLocalTime(new Date(reservation.date), restaurantTimezone)
+      console.log('resDateInRestaurantTz: ', resDateInRestaurantTz);
+      console.log('selectedDate: ', selectedDate);
       // Compare only the date portion
       return startOfDay(resDateInRestaurantTz).getTime() ===
         startOfDay(selectedDate).getTime();
