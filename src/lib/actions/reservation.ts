@@ -8,6 +8,7 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
 import { ReservationForTimeSlotGen } from '@/types';
 import RestaurantDetails from '@/components/restaurant-details';
+import { convertToUtc } from '../utils/timezone';
 
 const ReservationSchema = z.object({
     restaurantId: z.number(),
@@ -160,15 +161,23 @@ export async function createReservation(prevState: State, formData: FormData) {
 }
 
 export async function getReservations(
-    restaurantId: number, startDate: Date, endDate: Date
+    restaurantId: number, startDate: Date, endDate: Date, restaurantTimezone: string
 ): Promise<GetReservationsResponse> {
     try {
+        const utcStartDate = convertToUtc(startOfDay(startDate), restaurantTimezone);
+        const utcEndDate = convertToUtc(endOfDay(endDate), restaurantTimezone);
+        console.log('startDate: ', startDate);
+        console.log('startOfDay(startDate): ', startOfDay(startDate));
+        console.log('utcStartDate: ', utcStartDate);
+        console.log('endDate: ', endDate);
+        console.log('utcEndDate: ', utcEndDate);
+        
         const reservations = await prisma.reservation.findMany({
             where: {
                 restaurant_id: restaurantId,
                 date: {
-                    gte: startOfDay(startDate),
-                    lte: endOfDay(endDate),
+                    gte: startOfDay(utcStartDate),
+                    lte: endOfDay(utcEndDate),
                 },
                 status: {
                     in: ['new', 'confirmed']

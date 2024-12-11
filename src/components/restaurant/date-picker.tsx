@@ -64,7 +64,7 @@ export default function DatePicker({
       try {
         console.log('currentDateInUtc: ', currentDateInUtc);
         console.log('startOfDay(currentDateInUtc): ', startOfDay(currentDateInUtc));
-        const { reservations, error } = await getReservations(restaurantId, currentDateInUtc, maxDate);
+        const { reservations, error } = await getReservations(restaurantId, new Date(), maxDate, restaurantTimezone);
 
         if (error || !reservations) {
           console.error('Error:', error);
