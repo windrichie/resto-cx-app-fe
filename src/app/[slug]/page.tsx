@@ -40,6 +40,7 @@ export default async function RestaurantPage({
                     <DatePicker
                         restaurantId={restaurant.id}
                         restaurantName={restaurant.name}
+                        restaurantSlug={restaurant.slug}
                         timeSlotLength={restaurant.time_slot_length}
                         operatingHours={restaurant.operating_hours as Record<string, string>}
                         allowedBookingAdvance={restaurant.allowed_booking_advance_days}

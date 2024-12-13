@@ -34,6 +34,7 @@ interface TimeSlot {
 interface DatePickerProps {
   restaurantId: number;
   restaurantName: string;
+  restaurantSlug: string;
   timeSlotLength: number;
   operatingHours: Record<string, string>;
   allowedBookingAdvance: number;
@@ -49,6 +50,7 @@ interface DatePickerProps {
 export default function DatePicker({
   restaurantId,
   restaurantName,
+  restaurantSlug,
   timeSlotLength,
   operatingHours,
   allowedBookingAdvance,
@@ -218,6 +220,7 @@ export default function DatePicker({
             partySize={partySize}
             restaurantId={restaurantId}
             restaurantName={restaurantName}
+            restaurantSlug={restaurantSlug}
             timeSlotLength={timeSlotLength}
             restaurantTimezone={restaurantTimezone}
           />

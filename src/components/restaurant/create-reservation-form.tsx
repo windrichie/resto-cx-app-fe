@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { createReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
+import { useRouter } from 'next/navigation';
 
 
 interface ReservationFormProps {
@@ -31,13 +32,15 @@ interface ReservationFormProps {
   partySize: number;
   restaurantId: number;
   restaurantName: string;
+  restaurantSlug: string;
   timeSlotLength: number;
   restaurantTimezone: string;
 }
 
 export default function CreateReservationForm({
-  selectedDate, selectedTime, partySize, restaurantId, restaurantName, timeSlotLength, restaurantTimezone
+  selectedDate, selectedTime, partySize, restaurantId, restaurantName, restaurantSlug, timeSlotLength, restaurantTimezone
 }: ReservationFormProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const initialState: State = { message: '', errors: {} };
   const [state, formAction, isPending] = useActionState(createReservation, initialState);
@@ -258,7 +261,10 @@ export default function CreateReservationForm({
           <DialogFooter>
             <Button
               className="w-full"
-              onClick={() => setShowSuccessDialog(false)}
+              onClick={() => {
+                setShowSuccessDialog(false);
+                router.push(state.reservationLink || `/${restaurantSlug}`);
+              }}
             >
               Done
             </Button>

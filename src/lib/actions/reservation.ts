@@ -9,6 +9,7 @@ import { TZDate } from '@date-fns/tz';
 import { ReservationForTimeSlotGen } from '@/types';
 import { calculateReservationTimes, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
+import { redirect } from 'next/navigation';
 
 const ReservationSchema = z.object({
     restaurantId: z.number(),
@@ -34,6 +35,7 @@ const UpdateReservationSchema = z.object({
     timeSlotStart: z.string().min(1, 'Time slot is required'),
     timeSlotLength: z.number().min(1, 'Time slot length is required'),
     restaurantTimezone: z.string().min(1, 'Timezone is required'),
+    restaurantSlug: z.string()
 });
 
 export type State = {
@@ -202,7 +204,7 @@ export async function createReservation(prevState: State, formData: FormData): P
 
         const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
 
-        revalidatePath(`/restaurants/${data.restaurantId}`);
+        revalidatePath(`/${data.restaurantId}`);
         return {
             message: 'Reservation Created Successfully!',
             reservationLink
@@ -275,6 +277,7 @@ export async function updateReservation(
         const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
 
         revalidatePath(`/reservation/${data.confirmationCode}`);
+        redirect(`/reservations/${reservation.confirmation_code}/${mac}`);
         return {
             message: 'Reservation Updated Successfully!',
             reservationLink

@@ -15,6 +15,7 @@ export default function ModifyReservation({ reservation, onCancel }: ModifyReser
             <DatePicker
                 restaurantId={reservation.restaurant_id}
                 restaurantName={reservation.restaurant.name}
+                restaurantSlug={reservation.restaurant.slug}
                 timeSlotLength={reservation.restaurant.time_slot_length}
                 operatingHours={reservation.restaurant.operating_hours as Record<string, string>}
                 allowedBookingAdvance={reservation.restaurant.allowed_booking_advance_days}
