@@ -18,11 +18,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import ReservationForm from './reservation-form';
+import CreateReservationForm from './create-reservation-form';
+import ModifyReservationForm from './modify-reservation-form';
 import { generateTimeSlots } from '@/lib/utils/reservation';
 import { getReservations } from '@/lib/actions/reservation';
 import { ReservationForTimeSlotGen } from '@/types';
-import { convertToLocalTime } from '@/lib/utils/timezone';
+import { convertToLocalTime } from '@/lib/utils/date-and-time';
 
 interface TimeSlot {
   start: string;
@@ -38,6 +39,11 @@ interface DatePickerProps {
   allowedBookingAdvance: number;
   tableCapacity: Record<string, number>;
   restaurantTimezone: string;
+  isModifying?: boolean;
+  initialDate?: Date;
+  initialPartySize?: number;
+  initialTime?: string;
+  confirmationCode?: string;
 }
 
 export default function DatePicker({
@@ -47,12 +53,26 @@ export default function DatePicker({
   operatingHours,
   allowedBookingAdvance,
   tableCapacity,
-  restaurantTimezone
+  restaurantTimezone,
+  isModifying = false,
+  initialDate,
+  initialPartySize,
+  initialTime,
+  confirmationCode
 }: DatePickerProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
-  const [partySize, setPartySize] = useState<number>(2);
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || startOfDay(new Date()));
+  const [partySize, setPartySize] = useState<number>(initialPartySize || 2);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(() => {
+    if (initialTime) {
+      return {
+        start: initialTime,
+        end: '',
+        available: true
+      };
+    }
+    return null;
+  });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
 
   const maxDate = addDays(new Date(), allowedBookingAdvance);
@@ -75,7 +95,7 @@ export default function DatePicker({
     }
 
     fetchAllReservations();
-  }, [restaurantId, allowedBookingAdvance]);
+  }, [restaurantId, allowedBookingAdvance, maxDate, restaurantTimezone]);
 
   // Generate time slots when date or party size changes
   useEffect(() => {
@@ -103,7 +123,16 @@ export default function DatePicker({
     );
 
     setTimeSlots(slots);
-  }, [selectedDate, partySize, allReservations, operatingHours, timeSlotLength, tableCapacity]);
+  }, [selectedDate, partySize, allReservations, operatingHours, timeSlotLength, tableCapacity, restaurantTimezone]);
+
+  useEffect(() => {
+    if (isModifying && initialTime && timeSlots.length > 0) {
+      const matchingSlot = timeSlots.find(slot => slot.start === initialTime);
+      if (matchingSlot) {
+        setSelectedSlot(matchingSlot);
+      }
+    }
+  }, [timeSlots, initialTime, isModifying]);
 
   return (
     <div className="space-y-4">
@@ -172,15 +201,28 @@ export default function DatePicker({
       )}
 
       {selectedSlot && (
-        <ReservationForm
-          selectedDate={selectedDate}
-          selectedTime={selectedSlot.start}
-          partySize={partySize}
-          restaurantId={restaurantId}
-          restaurantName={restaurantName}
-          timeSlotLength={timeSlotLength}
-          restaurantTimezone={restaurantTimezone}
-        />
+        isModifying ? (
+          <ModifyReservationForm
+            selectedDate={selectedDate}
+            selectedTime={selectedSlot.start}
+            partySize={partySize}
+            restaurantId={restaurantId}
+            restaurantName={restaurantName}
+            timeSlotLength={timeSlotLength}
+            restaurantTimezone={restaurantTimezone}
+            confirmationCode={confirmationCode ?? ''}
+          />
+        ) : (
+          <CreateReservationForm
+            selectedDate={selectedDate}
+            selectedTime={selectedSlot.start}
+            partySize={partySize}
+            restaurantId={restaurantId}
+            restaurantName={restaurantName}
+            timeSlotLength={timeSlotLength}
+            restaurantTimezone={restaurantTimezone}
+          />
+        )
       )}
     </div>
   );

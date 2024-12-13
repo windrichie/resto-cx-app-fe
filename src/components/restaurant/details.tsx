@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import type { Restaurant } from '@prisma/client';
+import type { Restaurant } from '@/types/index';
 import { sortOperatingHours } from '@/lib/actions/restaurant';
 
 type OperatingHours = Record<string, string>;

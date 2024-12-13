@@ -1,7 +1,7 @@
 // src/lib/utils/reservation.ts
 import { addMinutes, parse, format } from 'date-fns';
 import { TimeSlot, ReservationForTimeSlotGen } from '@/types';
-import { convertToLocalTime } from './timezone';
+import { convertToLocalTime } from './date-and-time';
 
 export function determineTableCapacity(
     partySize: number,

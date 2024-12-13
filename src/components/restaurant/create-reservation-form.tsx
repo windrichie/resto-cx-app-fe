@@ -10,7 +10,6 @@ import { Loader2, CheckIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter
@@ -36,11 +35,11 @@ interface ReservationFormProps {
   restaurantTimezone: string;
 }
 
-export default function ReservationForm({
+export default function CreateReservationForm({
   selectedDate, selectedTime, partySize, restaurantId, restaurantName, timeSlotLength, restaurantTimezone
 }: ReservationFormProps) {
   const { toast } = useToast();
-  const initialState: State = { message: null, errors: {} };
+  const initialState: State = { message: '', errors: {} };
   const [state, formAction, isPending] = useActionState(createReservation, initialState);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);;
   const [customerEmail, setCustomerEmail] = useState<string>('');
@@ -222,7 +221,7 @@ export default function ReservationForm({
             </div>
             <DialogTitle className="text-xl text-center">Reservation confirmed</DialogTitle>
             <div className="text-sm text-center">
-              <span className="text-muted-foreground">Email sent to</span> <br/>
+              <span className="text-muted-foreground">Email sent to</span> <br />
               {customerEmail}
             </div>
           </DialogHeader>
@@ -248,6 +247,13 @@ export default function ReservationForm({
               </div>
             </div>
           </div>
+
+          {state.reservationLink && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">Reservation Link (Development Only - access this link to view your reservation)</p>
+              <p className="text-sm break-all font-mono">{state.reservationLink}</p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button
