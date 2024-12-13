@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format, addDays, startOfDay, isBefore } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -74,8 +74,7 @@ export default function DatePicker({
     return null;
   });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
-
-  const maxDate = addDays(new Date(), allowedBookingAdvance);
+  const maxDate = useMemo(() => addDays(new Date(), allowedBookingAdvance), [allowedBookingAdvance]);
 
   // Fetch all reservations once during component mount
   useEffect(() => {
