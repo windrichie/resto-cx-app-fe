@@ -14,28 +14,29 @@ import {
 } from "@/components/ui/dialog";
 import { updateReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
+import { Reservation, Restaurant } from '@/types';
+import { useRouter } from 'next/navigation';
 
 interface ModifyReservationFormProps {
     selectedDate: Date;
     selectedTime: string;
     partySize: number;
-    restaurantId: number;
-    restaurantName: string;
-    timeSlotLength: number;
-    restaurantTimezone: string;
+    restaurant: Restaurant;
     confirmationCode: string;
+    reservation: Reservation;
+    onModificationComplete?: () => void;
 }
 
 export default function ModifyReservationForm({
     selectedDate,
     selectedTime,
     partySize,
-    restaurantId,
-    restaurantName,
-    timeSlotLength,
-    restaurantTimezone,
     confirmationCode,
+    restaurant,
+    reservation,
+    onModificationComplete
 }: ModifyReservationFormProps) {
+    const router = useRouter();
     const { toast } = useToast();
     const initialState: State = {
         message: '',  // Change from null to empty string
@@ -61,12 +62,18 @@ export default function ModifyReservationForm({
         <>
             <form action={formAction} className="space-y-4">
                 <input type="hidden" name="confirmationCode" value={confirmationCode} />
-                <input type="hidden" name="restaurantId" value={restaurantId} />
+                <input type="hidden" name="restaurantId" value={restaurant.id} />
+                <input type="hidden" name="restaurantName" value={restaurant.name} />
                 <input type="hidden" name="date" value={selectedDate.toISOString()} />
                 <input type="hidden" name="timeSlotStart" value={selectedTime} />
                 <input type="hidden" name="partySize" value={partySize} />
-                <input type="hidden" name="timeSlotLength" value={timeSlotLength} />
-                <input type="hidden" name="restaurantTimezone" value={restaurantTimezone} />
+                <input type="hidden" name="timeSlotLength" value={restaurant.time_slot_length} />
+                <input type="hidden" name="restaurantTimezone" value={restaurant.timezone} />
+                <input type="hidden" name="restaurantAddress" value={restaurant.address} />
+                <input type="hidden" name="restaurantSlug" value={restaurant.slug} />
+                <input type="hidden" name="customerEmail" value={reservation.customer_email ?? ""} />
+                <input type="hidden" name="customerName" value={reservation.customer_name ?? ""} />
+                <input type="hidden" name="restaurantImages" value={JSON.stringify(restaurant.images)} />
 
                 <h3 className="text-xl font-semibold mb-4">Update Reservation Details</h3>
                 <p className="mb-4">
@@ -115,13 +122,13 @@ export default function ModifyReservationForm({
                         </div>
                         <div className="text-left">
                             <div className="font-medium text-lg">
-                                {restaurantName}
+                                {restaurant.name}
                             </div>
                             <div className="text-muted-foreground">
                                 Party of {partySize}
                             </div>
                             <div className="text-muted-foreground">
-                                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurantTimezone})
+                                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurant.timezone})
                             </div>
                         </div>
                     </div>
@@ -134,7 +141,13 @@ export default function ModifyReservationForm({
                     )}
 
                     <DialogFooter>
-                        <Button className="w-full" onClick={() => setShowSuccessDialog(false)}>
+                        <Button className="w-full" onClick={() => {
+                            setShowSuccessDialog(false);
+                            // Reset the form state
+                            onModificationComplete?.(); //
+                            // Navigate to the reservation page
+                            router.push(state.reservationLink || `/${restaurant.slug}`);
+                        }}>
                             Done
                         </Button>
                     </DialogFooter>

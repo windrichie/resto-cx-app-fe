@@ -25,7 +25,7 @@ export default function CancelledReservationView({ restaurantSlug, restaurantNam
 
         <Link href={`/${restaurantSlug}`}>
           <Button className="w-full">
-            Make New Reservation
+            Make a new reservation
           </Button>
         </Link>
       </div>

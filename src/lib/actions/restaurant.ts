@@ -6,7 +6,6 @@ export async function getRestaurant(slug: string): Promise<Restaurant | null> {
     const restaurant = await prisma.restaurant.findUnique({
         where: { slug },
     });
-
     return restaurant;
 }
 

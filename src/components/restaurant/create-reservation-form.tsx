@@ -24,21 +24,18 @@ import {
 import { createReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
 import { useRouter } from 'next/navigation';
+import { Restaurant } from '@/types';
 
 
 interface ReservationFormProps {
   selectedDate: Date;
   selectedTime: string;
   partySize: number;
-  restaurantId: number;
-  restaurantName: string;
-  restaurantSlug: string;
-  timeSlotLength: number;
-  restaurantTimezone: string;
+  restaurant: Restaurant;
 }
 
 export default function CreateReservationForm({
-  selectedDate, selectedTime, partySize, restaurantId, restaurantName, restaurantSlug, timeSlotLength, restaurantTimezone
+  selectedDate, selectedTime, partySize, restaurant
 }: ReservationFormProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -63,12 +60,15 @@ export default function CreateReservationForm({
   return (
     <>
       <form action={formAction} className="space-y-4">
-        <input type="hidden" name="restaurantId" value={restaurantId} />
+        <input type="hidden" name="restaurantId" value={restaurant.id} />
         <input type="hidden" name="date" value={selectedDate.toISOString()} />
         <input type="hidden" name="timeSlotStart" value={selectedTime} />
         <input type="hidden" name="partySize" value={partySize} />
-        <input type="hidden" name="timeSlotLength" value={timeSlotLength} />
-        <input type="hidden" name="restaurantTimezone" value={restaurantTimezone} />
+        <input type="hidden" name="timeSlotLength" value={restaurant.time_slot_length} />
+        <input type="hidden" name="restaurantTimezone" value={restaurant.timezone} />
+        <input type="hidden" name="restaurantName" value={restaurant.name} />
+        <input type="hidden" name="restaurantAddress" value={restaurant.address} />
+        <input type="hidden" name="restaurantImages" value={JSON.stringify(restaurant.images)} />
 
         <h3 className="text-xl font-semibold mb-4">Reservation Details</h3>
         <p className="mb-4">
@@ -240,13 +240,13 @@ export default function CreateReservationForm({
             </div>
             <div className="text-left">
               <div className="font-medium text-lg">
-                {restaurantName}
+                {restaurant.name}
               </div>
               <div className="text-muted-foreground">
                 Party of {partySize}
               </div>
               <div className="text-muted-foreground">
-                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurantTimezone})
+                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurant.timezone})
               </div>
             </div>
           </div>
@@ -263,7 +263,7 @@ export default function CreateReservationForm({
               className="w-full"
               onClick={() => {
                 setShowSuccessDialog(false);
-                router.push(state.reservationLink || `/${restaurantSlug}`);
+                router.push(state.reservationLink || `/${restaurant.slug}`);
               }}
             >
               Done

@@ -22,7 +22,7 @@ import CreateReservationForm from './create-reservation-form';
 import ModifyReservationForm from './modify-reservation-form';
 import { generateTimeSlots } from '@/lib/utils/reservation';
 import { getReservations } from '@/lib/actions/reservation';
-import { ReservationForTimeSlotGen } from '@/types';
+import { Reservation, ReservationForTimeSlotGen, Restaurant } from '@/types';
 import { convertToLocalTime } from '@/lib/utils/date-and-time';
 
 interface TimeSlot {
@@ -32,35 +32,29 @@ interface TimeSlot {
 }
 
 interface DatePickerProps {
-  restaurantId: number;
-  restaurantName: string;
-  restaurantSlug: string;
-  timeSlotLength: number;
+  restaurant: Restaurant;
   operatingHours: Record<string, string>;
-  allowedBookingAdvance: number;
   tableCapacity: Record<string, number>;
-  restaurantTimezone: string;
-  isModifying?: boolean;
+  isModifying: boolean;
   initialDate?: Date;
   initialPartySize?: number;
   initialTime?: string;
   confirmationCode?: string;
+  reservation?: Reservation;
+  onModificationComplete?: () => void;
 }
 
 export default function DatePicker({
-  restaurantId,
-  restaurantName,
-  restaurantSlug,
-  timeSlotLength,
+  restaurant,
   operatingHours,
-  allowedBookingAdvance,
   tableCapacity,
-  restaurantTimezone,
   isModifying = false,
   initialDate,
   initialPartySize,
   initialTime,
-  confirmationCode
+  confirmationCode,
+  reservation,
+  onModificationComplete
 }: DatePickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || startOfDay(new Date()));
   const [partySize, setPartySize] = useState<number>(initialPartySize || 2);
@@ -76,13 +70,13 @@ export default function DatePicker({
     return null;
   });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
-  const maxDate = useMemo(() => addDays(new Date(), allowedBookingAdvance), [allowedBookingAdvance]);
+  const maxDate = useMemo(() => addDays(new Date(), restaurant.allowed_booking_advance_days), [restaurant.allowed_booking_advance_days]);
 
   // Fetch all reservations once during component mount
   useEffect(() => {
     async function fetchAllReservations() {
       try {
-        const { reservations, error } = await getReservations(restaurantId, new Date(), maxDate, restaurantTimezone);
+        const { reservations, error } = await getReservations(restaurant.id, new Date(), maxDate, restaurant.timezone);
 
         if (error || !reservations) {
           console.error('Error:', error);
@@ -96,14 +90,14 @@ export default function DatePicker({
     }
 
     fetchAllReservations();
-  }, [restaurantId, allowedBookingAdvance, maxDate, restaurantTimezone]);
+  }, [restaurant.id, restaurant.allowed_booking_advance_days, maxDate, restaurant.timezone]);
 
   // Generate time slots when date or party size changes
   useEffect(() => {
     // Filter reservations for selected date
     const dateReservations = allReservations.filter(reservation => {
       // convert to restaurant time zone
-      const resDateInRestaurantTz = convertToLocalTime(new Date(reservation.date), restaurantTimezone)
+      const resDateInRestaurantTz = convertToLocalTime(new Date(reservation.date), restaurant.timezone)
       console.log('resDateInRestaurantTz: ', resDateInRestaurantTz);
       console.log('selectedDate: ', selectedDate);
       // Compare only the date portion
@@ -116,15 +110,15 @@ export default function DatePicker({
     const slots = generateTimeSlots(
       selectedDate,
       operatingHours,
-      timeSlotLength,
+      restaurant.time_slot_length,
       dateReservations,
       tableCapacity,
       partySize,
-      restaurantTimezone
+      restaurant.timezone
     );
 
     setTimeSlots(slots);
-  }, [selectedDate, partySize, allReservations, operatingHours, timeSlotLength, tableCapacity, restaurantTimezone]);
+  }, [selectedDate, partySize, allReservations, operatingHours, restaurant.time_slot_length, tableCapacity, restaurant.timezone]);
 
   useEffect(() => {
     if (isModifying && initialTime && timeSlots.length > 0) {
@@ -203,26 +197,27 @@ export default function DatePicker({
 
       {selectedSlot && (
         isModifying ? (
-          <ModifyReservationForm
-            selectedDate={selectedDate}
-            selectedTime={selectedSlot.start}
-            partySize={partySize}
-            restaurantId={restaurantId}
-            restaurantName={restaurantName}
-            timeSlotLength={timeSlotLength}
-            restaurantTimezone={restaurantTimezone}
-            confirmationCode={confirmationCode ?? ''}
-          />
+          reservation ? (
+            <ModifyReservationForm
+              selectedDate={selectedDate}
+              selectedTime={selectedSlot.start}
+              partySize={partySize}
+              // restaurantId={restaurant.id}
+              // restaurantName={restaurant.name}
+              // timeSlotLength={timeSlotLength}
+              // restaurantTimezone={restaurantTimezone}
+              confirmationCode={confirmationCode ?? ''}
+              restaurant={restaurant}
+              reservation={reservation}
+              onModificationComplete={onModificationComplete}
+            />
+          ) : null
         ) : (
           <CreateReservationForm
             selectedDate={selectedDate}
             selectedTime={selectedSlot.start}
             partySize={partySize}
-            restaurantId={restaurantId}
-            restaurantName={restaurantName}
-            restaurantSlug={restaurantSlug}
-            timeSlotLength={timeSlotLength}
-            restaurantTimezone={restaurantTimezone}
+            restaurant={restaurant}
           />
         )
       )}

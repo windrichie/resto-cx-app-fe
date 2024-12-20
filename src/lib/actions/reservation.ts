@@ -4,14 +4,16 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
-import { ReservationForTimeSlotGen } from '@/types';
+import { Reservation, ReservationForTimeSlotGen } from '@/types';
 import { calculateReservationTimes, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { redirect } from 'next/navigation';
+import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
+import { getBaseUrl } from '../utils/common';
 
-const ReservationSchema = z.object({
+const CreateReservationSchema = z.object({
     restaurantId: z.number(),
     customerName: z.string().min(1, 'Name is required'),
     customerEmail: z.string().email('Invalid email address'),
@@ -25,7 +27,10 @@ const ReservationSchema = z.object({
     specialOccasion: z.string().optional(),
     otherSpecialOccasion: z.string().optional(),
     specialRequests: z.string().optional(),
-    restaurantTimezone: z.string()
+    restaurantTimezone: z.string(),
+    restaurantName: z.string(),
+    restaurantAddress: z.string(),
+    restaurantImages: z.array(z.string())
 });
 
 const UpdateReservationSchema = z.object({
@@ -35,7 +40,11 @@ const UpdateReservationSchema = z.object({
     timeSlotStart: z.string().min(1, 'Time slot is required'),
     timeSlotLength: z.number().min(1, 'Time slot length is required'),
     restaurantTimezone: z.string().min(1, 'Timezone is required'),
-    restaurantSlug: z.string()
+    restaurantName: z.string(),
+    restaurantAddress: z.string(),
+    customerName: z.string(),
+    customerEmail: z.string(),
+    restaurantImages: z.array(z.string())
 });
 
 export type State = {
@@ -134,8 +143,8 @@ export async function getReservations(
 }
 
 export async function createReservation(prevState: State, formData: FormData): Promise<State> {
-    console.log(formData);
-    const validatedFields = ReservationSchema.safeParse({
+    console.log('createReservation formData: ', formData);
+    const validatedFields = CreateReservationSchema.safeParse({
         restaurantId: parseInt(formData.get('restaurantId') as string),
         customerName: formData.get('customerName'),
         customerEmail: formData.get('customerEmail'),
@@ -149,20 +158,25 @@ export async function createReservation(prevState: State, formData: FormData): P
         specialOccasion: formData.get('specialOccasion'),
         otherSpecialOccasion: formData.get('otherSpecialOccasion'),
         specialRequests: formData.get('specialRequests'),
-        restaurantTimezone: formData.get('restaurantTimezone')
+        restaurantTimezone: formData.get('restaurantTimezone'),
+        restaurantName: formData.get('restaurantName'),
+        restaurantAddress: formData.get('restaurantAddress'),
+        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]')
     });
 
     if (!validatedFields.success) {
-        console.log(validatedFields.error.flatten())
+        console.error(validatedFields.error.flatten());
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: 'Missing Fields. Failed to Create Reservation.',
         } as State;
     }
-
     const data = validatedFields.data;
     console.log('Data being passed to Prisma:', data);
 
+    // retrieve the first image for use in email as thumbnail
+    const restaurantThumbnail = data.restaurantImages[0] || '';
+    // get customer ID
     const customerId = await getOrCreateCustomerId(data.customerEmail);
 
     const { startDateTime, endDateTime } = calculateReservationTimes(
@@ -203,6 +217,21 @@ export async function createReservation(prevState: State, formData: FormData): P
         );
 
         const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
+        const baseUrl = getBaseUrl();
+        const fullReservationLink = `${baseUrl}${reservationLink}`;
+
+        await sendCreateOrModifyReservationEmail({
+            mode: 'Create',
+            to: data.customerEmail,
+            customerName: data.customerName,
+            restaurantName: data.restaurantName,
+            date: format(data.date, 'MMMM d, yyyy'),
+            time: format(startDateTime, 'h:mm a'),
+            guests: data.partySize,
+            address: data.restaurantAddress,
+            reservationLink: fullReservationLink,
+            restaurantThumbnail: restaurantThumbnail
+        });
 
         revalidatePath(`/${data.restaurantId}`);
         return {
@@ -235,9 +264,15 @@ export async function updateReservation(
         timeSlotStart: formData.get('timeSlotStart'),
         timeSlotLength: parseInt(formData.get('timeSlotLength') as string),
         restaurantTimezone: formData.get('restaurantTimezone'),
+        restaurantName: formData.get('restaurantName'),
+        restaurantAddress: formData.get('restaurantAddress'),
+        customerEmail: formData.get('customerEmail'),
+        customerName: formData.get('customerName'),
+        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]')
     });
 
     if (!validatedFields.success) {
+        console.error(validatedFields.error.flatten());
         return {
             errors: validatedFields.error.flatten().fieldErrors,
             message: 'Invalid fields. Failed to update reservation.',
@@ -245,6 +280,9 @@ export async function updateReservation(
     }
 
     const data = validatedFields.data;
+
+    // retrieve the first image for use in email as thumbnail
+    const restaurantThumbnail = data.restaurantImages[0] || '';
 
     const { startDateTime, endDateTime } = calculateReservationTimes(
         data.date,
@@ -275,9 +313,24 @@ export async function updateReservation(
         );
 
         const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
+        const baseUrl = getBaseUrl();
+        const fullReservationLink = `${baseUrl}${reservationLink}`;
+
+        await sendCreateOrModifyReservationEmail({
+            mode: 'Modify',
+            to: data.customerEmail,
+            customerName: data.customerName,
+            restaurantName: data.restaurantName,
+            date: format(data.date, 'MMMM d, yyyy'),
+            time: format(startDateTime, 'h:mm a'),
+            guests: data.partySize,
+            address: data.restaurantAddress,
+            reservationLink: fullReservationLink,
+            restaurantThumbnail: restaurantThumbnail
+        });
 
         revalidatePath(`/reservation/${data.confirmationCode}`);
-        redirect(`/reservations/${reservation.confirmation_code}/${mac}`);
+
         return {
             message: 'Reservation Updated Successfully!',
             reservationLink
@@ -291,15 +344,30 @@ export async function updateReservation(
 }
 
 export async function cancelReservation(
-    confirmationCode: string
+    reservation: Reservation
 ) {
     try {
         await prisma.reservation.update({
-            where: { confirmation_code: confirmationCode },
+            where: { confirmation_code: reservation.confirmation_code },
             data: { status: 'cancelled' },
         });
 
-        revalidatePath(`/reservation/${confirmationCode}`);
+        // Send cancellation email
+        await sendCancellationEmail({
+            to: reservation.customer_email!,
+            customerName: reservation.customer_name!,
+            restaurantName: reservation.restaurant.name,
+            date: format(reservation.date, 'MMMM d, yyyy'),
+            time: format(reservation.timeslot_start, 'h:mm a'),
+            guests: reservation.party_size,
+            address: reservation.restaurant.address,
+            restaurantSlug: reservation.restaurant.slug,
+            restaurantThumbnail: reservation.restaurant.images[0],
+            baseUrl: getBaseUrl()
+        });
+
+
+        revalidatePath(`/reservation/${reservation.confirmation_code}`);
         return { success: true, message: 'Reservation Cancelled Successfully!' };
     } catch (error) {
         console.error('Error cancelling reservation:', error);

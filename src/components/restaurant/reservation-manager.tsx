@@ -24,7 +24,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
 
     const handleCancel = async () => {
         setIsPending(true);
-        const result = await cancelReservation(reservation.confirmation_code);
+        const result = await cancelReservation(reservation);
         setIsPending(false);
 
         if (result.success) {
@@ -134,6 +134,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                         <ModifyReservation
                             reservation={reservation}
                             onCancel={() => setIsEditing(false)}
+                            onModificationComplete={() => setIsEditing(false)}
                         />
                     )}
                 </div>
