@@ -186,6 +186,20 @@ export async function createReservation(prevState: State, formData: FormData): P
 
     console.log('startDateTime: ', startDateTime);
 
+    const dateInRestaurantTz = data.date.toLocaleString('en-US', {
+        timeZone: data.restaurantTimezone,
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    });
+
+    const startTimeInRestaurantTz = startDateTime.toLocaleString('en-US', {
+        timeZone: data.restaurantTimezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+
     try {
         // First try block for database operation
         const reservation = await prisma.reservation.create({
@@ -229,8 +243,10 @@ export async function createReservation(prevState: State, formData: FormData): P
                     to: data.customerEmail,
                     customerName: data.customerName,
                     restaurantName: data.restaurantName,
-                    date: format(data.date, 'MMMM d, yyyy'),
-                    time: format(startDateTime, 'h:mm a'),
+                    // date: format(data.date, 'MMMM d, yyyy'),
+                    // time: format(startDateTime, 'h:mm a'),
+                    date: dateInRestaurantTz,
+                    time: startTimeInRestaurantTz,
                     guests: data.partySize,
                     address: data.restaurantAddress,
                     reservationLink: fullReservationLink,
@@ -318,6 +334,20 @@ export async function updateReservation(
         data.restaurantTimezone
     );
 
+    const dateInRestaurantTz = data.date.toLocaleString('en-US', {
+        timeZone: data.restaurantTimezone,
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    });
+
+    const startTimeInRestaurantTz = startDateTime.toLocaleString('en-US', {
+        timeZone: data.restaurantTimezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+
     try {
         // First try block for database operation
         const reservation = await prisma.reservation.update({
@@ -352,8 +382,8 @@ export async function updateReservation(
                     to: data.customerEmail,
                     customerName: data.customerName,
                     restaurantName: data.restaurantName,
-                    date: format(data.date, 'MMMM d, yyyy'),
-                    time: format(startDateTime, 'h:mm a'),
+                    date: dateInRestaurantTz,
+                    time: startTimeInRestaurantTz,
                     guests: data.partySize,
                     address: data.restaurantAddress,
                     reservationLink: fullReservationLink,
@@ -405,6 +435,20 @@ export async function updateReservation(
 export async function cancelReservation(
     reservation: Reservation
 ) {
+    const dateInRestaurantTz = reservation.date.toLocaleString('en-US', {
+        timeZone: reservation.restaurant.timezone,
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    });
+
+    const startTimeInRestaurantTz = reservation.timeslot_start.toLocaleString('en-US', {
+        timeZone: reservation.restaurant.timezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+
     try {
         await prisma.reservation.update({
             where: { confirmation_code: reservation.confirmation_code },
@@ -416,8 +460,8 @@ export async function cancelReservation(
             to: reservation.customer_email!,
             customerName: reservation.customer_name!,
             restaurantName: reservation.restaurant.name,
-            date: format(reservation.date, 'MMMM d, yyyy'),
-            time: format(reservation.timeslot_start, 'h:mm a'),
+            date: dateInRestaurantTz,
+            time: startTimeInRestaurantTz,
             guests: reservation.party_size,
             address: reservation.restaurant.address,
             restaurantSlug: reservation.restaurant.slug,
