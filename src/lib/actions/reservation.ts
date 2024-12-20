@@ -184,6 +184,8 @@ export async function createReservation(prevState: State, formData: FormData): P
         data.restaurantTimezone
     );
 
+    console.log('startDateTime: ', startDateTime);
+
     try {
         // First try block for database operation
         const reservation = await prisma.reservation.create({
