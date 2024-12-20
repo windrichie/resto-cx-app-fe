@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckIcon } from "lucide-react";
+import { Loader2, CheckIcon, XIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,18 +42,24 @@ export default function CreateReservationForm({
   const initialState: State = { message: '', errors: {} };
   const [state, formAction, isPending] = useActionState(createReservation, initialState);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);;
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string>('');
 
-  // Watch for successful submission
+  // Watch for successful/failed submission
   useEffect(() => {
-    if (state.message && !state.errors) {
-      setShowSuccessDialog(true);
-    } else if (state.errors) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: state.message
-      });
+    if (state.message) {
+      if (!state.errors) {
+        setShowSuccessDialog(true);
+        setShowErrorDialog(false);
+      } else if (Object.keys(state.errors).length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: state.message
+        });
+        setShowErrorDialog(true);
+        setShowSuccessDialog(false);
+      }
     }
   }, [state, toast]);
 
@@ -216,6 +222,7 @@ export default function CreateReservationForm({
         )}
       </form>
 
+      {/* Successful dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="text-center max-w-md">
           <DialogHeader className="space-y-4">
@@ -271,6 +278,33 @@ export default function CreateReservationForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Failed dialog */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="text-center max-w-md">
+          <DialogHeader className="space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+              <XIcon className="h-8 w-8 text-red-500" />
+            </div>
+            <DialogTitle className="text-xl text-center">Failed to Update Reservation</DialogTitle>
+          </DialogHeader>
+
+          <div className="my-4">
+            <p className="text-gray-600">{state.message}</p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              className="w-full"
+              variant="destructive"
+              onClick={() => setShowErrorDialog(false)}
+            >
+              Try Again
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 }

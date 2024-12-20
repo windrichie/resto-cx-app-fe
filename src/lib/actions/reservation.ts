@@ -5,11 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { TZDate } from '@date-fns/tz';
 import { Reservation, ReservationForTimeSlotGen } from '@/types';
 import { calculateReservationTimes, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
-import { redirect } from 'next/navigation';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
 import { getBaseUrl } from '../utils/common';
 
@@ -187,6 +185,7 @@ export async function createReservation(prevState: State, formData: FormData): P
     );
 
     try {
+        // First try block for database operation
         const reservation = await prisma.reservation.create({
             data: {
                 restaurant_id: data.restaurantId,
@@ -210,43 +209,69 @@ export async function createReservation(prevState: State, formData: FormData): P
             },
         });
 
-        // Generate MAC for the confirmation link
-        const mac = generateReservationMAC(
-            reservation.confirmation_code,
-            reservation.customer_email!
-        );
+        // Generate MAC and links
+        try {
+            const mac = generateReservationMAC(
+                reservation.confirmation_code,
+                reservation.customer_email!
+            );
 
-        const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
-        const baseUrl = getBaseUrl();
-        const fullReservationLink = `${baseUrl}${reservationLink}`;
+            const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
+            const baseUrl = getBaseUrl();
+            const fullReservationLink = `${baseUrl}${reservationLink}`;
 
-        await sendCreateOrModifyReservationEmail({
-            mode: 'Create',
-            to: data.customerEmail,
-            customerName: data.customerName,
-            restaurantName: data.restaurantName,
-            date: format(data.date, 'MMMM d, yyyy'),
-            time: format(startDateTime, 'h:mm a'),
-            guests: data.partySize,
-            address: data.restaurantAddress,
-            reservationLink: fullReservationLink,
-            restaurantThumbnail: restaurantThumbnail
-        });
+            // Email sending
+            try {
+                await sendCreateOrModifyReservationEmail({
+                    mode: 'Create',
+                    to: data.customerEmail,
+                    customerName: data.customerName,
+                    restaurantName: data.restaurantName,
+                    date: format(data.date, 'MMMM d, yyyy'),
+                    time: format(startDateTime, 'h:mm a'),
+                    guests: data.partySize,
+                    address: data.restaurantAddress,
+                    reservationLink: fullReservationLink,
+                    restaurantThumbnail: restaurantThumbnail
+                });
 
-        revalidatePath(`/${data.restaurantId}`);
-        return {
-            message: 'Reservation Created Successfully!',
-            reservationLink
-        } as State;
-    } catch (error) {
-        if (error instanceof Error) {
-            console.error('Error message:', error.message);
-        } else {
-            console.error('Unknown error:', error);
+                revalidatePath(`/${data.restaurantId}`);
+                return {
+                    message: 'Reservation Created Successfully!',
+                    reservationLink
+                } as State;
+
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Still return success but with a warning
+                return {
+                    message: 'Reservation Created Successfully (Email notification failed)',
+                    reservationLink,
+                    errors: 'Email notification could not be sent'
+                } as State;
+            }
+
+        } catch (macError) {
+            console.error('MAC generation failed:', macError);
+            // This is a critical error as it affects the reservation link
+            throw new Error('Failed to generate secure reservation link');
         }
 
+    } catch (error) {
+        if (error instanceof Error) {
+            console.error('Error creating reservation:', error.message);
+            return {
+                message: error.message.includes('secure reservation link')
+                    ? 'Failed to generate reservation link'
+                    : 'Database Error: Failed to Create Reservation',
+                errors: { database: ['Failed to create reservation.'] }
+            } as State;
+        }
+
+        console.error('Unknown error:', error);
         return {
-            message: 'Database Error: Failed to Create Reservation.',
+            message: 'An unexpected error occurred while creating the reservation.',
+            errors: { database: ['Failed to create reservation.'] }
         } as State;
     }
 }
@@ -292,6 +317,7 @@ export async function updateReservation(
     );
 
     try {
+        // First try block for database operation
         const reservation = await prisma.reservation.update({
             where: { confirmation_code: data.confirmationCode },
             data: {
@@ -306,41 +332,72 @@ export async function updateReservation(
             }
         });
 
-        // Generate new MAC and link
-        const mac = generateReservationMAC(
-            reservation.confirmation_code,
-            reservation.customer_email!
-        );
+        // Generate MAC and links
+        try {
+            const mac = generateReservationMAC(
+                reservation.confirmation_code,
+                reservation.customer_email!
+            );
 
-        const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
-        const baseUrl = getBaseUrl();
-        const fullReservationLink = `${baseUrl}${reservationLink}`;
+            const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
+            const baseUrl = getBaseUrl();
+            const fullReservationLink = `${baseUrl}${reservationLink}`;
 
-        await sendCreateOrModifyReservationEmail({
-            mode: 'Modify',
-            to: data.customerEmail,
-            customerName: data.customerName,
-            restaurantName: data.restaurantName,
-            date: format(data.date, 'MMMM d, yyyy'),
-            time: format(startDateTime, 'h:mm a'),
-            guests: data.partySize,
-            address: data.restaurantAddress,
-            reservationLink: fullReservationLink,
-            restaurantThumbnail: restaurantThumbnail
-        });
+            // Email sending
+            try {
+                await sendCreateOrModifyReservationEmail({
+                    mode: 'Modify',
+                    to: data.customerEmail,
+                    customerName: data.customerName,
+                    restaurantName: data.restaurantName,
+                    date: format(data.date, 'MMMM d, yyyy'),
+                    time: format(startDateTime, 'h:mm a'),
+                    guests: data.partySize,
+                    address: data.restaurantAddress,
+                    reservationLink: fullReservationLink,
+                    restaurantThumbnail: restaurantThumbnail
+                });
 
-        revalidatePath(`/reservation/${data.confirmationCode}`);
+                revalidatePath(`/reservation/${data.confirmationCode}`);
+                return {
+                    message: 'Reservation Updated Successfully!',
+                    reservationLink
+                } as State;
 
-        return {
-            message: 'Reservation Updated Successfully!',
-            reservationLink
-        } as State;
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Still return success but with a warning
+                return {
+                    message: 'Reservation Updated Successfully (Email notification failed)',
+                    reservationLink,
+                    errors: 'Email notification could not be sent'
+                } as State;
+            }
+
+        } catch (macError) {
+            console.error('MAC generation failed:', macError);
+            // This is a critical error as it affects the reservation link
+            throw new Error('Failed to generate secure reservation link');
+        }
+
     } catch (error) {
-        console.error('Error updating reservation:', error);
+        if (error instanceof Error) {
+            console.error('Error updating reservation:', error.message);
+            return {
+                message: error.message.includes('secure reservation link')
+                    ? 'Failed to generate reservation link'
+                    : 'Database Error: Failed to Update Reservation',
+                errors: { database: ['Failed to update reservation.'] }
+            } as State;
+        }
+
+        console.error('Unknown error:', error);
         return {
-            message: 'Database Error: Failed to Update Reservation.',
+            message: 'An unexpected error occurred while updating the reservation.',
+            errors: { database: ['Failed to update reservation.'] }
         } as State;
     }
+
 }
 
 export async function cancelReservation(
