@@ -11,6 +11,7 @@ import CancelDialog from '@/components/restaurant/cancel-dialog';
 import { cancelReservation } from '@/lib/actions/reservation';
 import CancelledReservationView from './cancelled-reservation';
 import { Reservation } from '@/types/index';
+import { convertTo12HourFormat } from '@/lib/utils/date-and-time';
 
 interface ReservationManagerProps {
     reservation: Reservation;
@@ -45,11 +46,13 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
     if (reservation.status === 'cancelled') {
         return (
             <CancelledReservationView
-                restaurantSlug={reservation.restaurant.slug}
-                restaurantName={reservation.restaurant.name}
+                restaurantSlug={reservation.business.slug}
+                restaurantName={reservation.business.name}
             />
         );
     }
+
+    const isCancelled = (status: Reservation['status']): status is 'cancelled' => status === 'cancelled';
 
     return (
         <main className="container mx-auto max-w-5xl">
@@ -57,7 +60,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
             <div className="grid md:grid-cols-2 gap-36">
                 {/* Left Column */}
                 <div>
-                    <RestaurantDetails restaurant={reservation.restaurant} />
+                    <RestaurantDetails restaurant={reservation.business} />
                 </div>
 
                 {/* Right Column */}
@@ -71,7 +74,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setIsEditing(!isEditing)}
-                                    disabled={reservation.status === 'cancelled' || isPending}
+                                    disabled={isCancelled(reservation.status) || isPending}
                                 >
                                     {isEditing ? 'Cancel Modification' : 'Modify'}
                                 </Button>
@@ -80,7 +83,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                                         variant="destructive"
                                         size="sm"
                                         onClick={() => setShowCancelDialog(true)}
-                                        disabled={reservation.status === 'cancelled' || isPending}
+                                        disabled={isCancelled(reservation.status) || isPending}
                                     >
                                         Cancel
                                     </Button>
@@ -89,11 +92,11 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                         </div>
 
                         <div className="space-y-4">
-                            {/* <div className="flex items-center gap-3 text-gray-700">
+                            <div className="flex items-center gap-3 text-gray-700">
                                 <Hash className="h-5 w-5 text-gray-400" />
                                 <span className="text-sm text-gray-500">Confirmation Code:</span>
-                                <span className="font-mono">{reservation.confirmation_code}</span>
-                            </div> */}
+                                <span className="font-mono">{reservation.confirmation_code.toUpperCase()}</span>
+                            </div>
 
                             <div className="flex items-center gap-3 text-gray-700">
                                 <CalendarDays className="h-5 w-5 text-gray-400" />
@@ -102,7 +105,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
 
                             <div className="flex items-center gap-3 text-gray-700">
                                 <Clock className="h-5 w-5 text-gray-400" />
-                                <span>{format(new Date(reservation.timeslot_start), 'p')}</span>
+                                <span>{convertTo12HourFormat(reservation.timeslot_start)}</span>
                             </div>
 
                             <div className="flex items-center gap-3 text-gray-700">

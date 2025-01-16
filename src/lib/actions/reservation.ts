@@ -6,19 +6,21 @@ import { revalidatePath } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { Reservation, ReservationForTimeSlotGen } from '@/types';
-import { calculateReservationTimes, convertToUtc } from '../utils/date-and-time';
+import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
 import { getBaseUrl } from '../utils/common';
+import { generateConfirmationCode } from '../utils/reservation';
+import { Prisma } from '@prisma/client';
 
 const CreateReservationSchema = z.object({
-    restaurantId: z.number(),
+    restaurantId: z.string(),
     customerName: z.string().min(1, 'Name is required'),
     customerEmail: z.string().email('Invalid email address'),
     customerPhone: z.string().min(8, 'Invalid phone number'),
     partySize: z.number().min(1),
     date: z.date(),
-    timeSlotLength: z.number(),
+    timeSlotLengthMinutes: z.number(),
     timeSlotStart: z.string(),
     dietaryRestrictions: z.string().optional(),
     otherDietaryRestrictions: z.string().optional(),
@@ -31,18 +33,31 @@ const CreateReservationSchema = z.object({
     restaurantImages: z.array(z.string())
 });
 
+const ReservationSettingSchema = z.object({
+    id: z.string(),
+    business_id: z.string(),
+    day_of_week: z.number().min(0).max(6),
+    reservation_start_time: z.date(),
+    reservation_end_time: z.date(),
+    capacity_settings: z.record(z.string(), z.number()),
+    specific_date: z.date().nullable(),
+    is_default: z.boolean(),
+    timeslot_length_minutes: z.number().positive()
+});
+
 const UpdateReservationSchema = z.object({
     confirmationCode: z.string().min(1, 'Confirmation code is required'),
     partySize: z.number().min(1, 'Party size must be at least 1'),
     date: z.date(),
     timeSlotStart: z.string().min(1, 'Time slot is required'),
-    timeSlotLength: z.number().min(1, 'Time slot length is required'),
+    timeSlotLengthMinutes: z.number().min(1, 'Time slot length is required'),
     restaurantTimezone: z.string().min(1, 'Timezone is required'),
     restaurantName: z.string(),
     restaurantAddress: z.string(),
     customerName: z.string(),
     customerEmail: z.string(),
-    restaurantImages: z.array(z.string())
+    restaurantImages: z.array(z.string()),
+    // reservationSettings: z.array(ReservationSettingSchema)
 });
 
 export type State = {
@@ -64,33 +79,92 @@ interface GetReservationsResponse {
     error?: string;
 }
 
-async function getOrCreateCustomerId(email: string): Promise<string> {
-    // Try to find existing reservation with this email
-    const existingReservation = await prisma.reservation.findFirst({
+async function getOrCreateUserId(
+    email: string,
+    name: string,
+    phone: string,
+): Promise<string> {
+    // Try to find existing user with this email
+    const existingUser = await prisma.users.findUnique({
         where: {
-            customer_email: email
-        },
-        select: {
-            customer_id: true
+            email: email
         }
     });
 
-    // If found, return existing customer_id
-    if (existingReservation) {
-        return existingReservation.customer_id;
+    // If found, return existing user id
+    if (existingUser) {
+        const isNameExists = existingUser.name.includes(name);
+        const isPhoneExists = existingUser.phone.includes(phone);
+
+        // If both name and phone already exist, no need to update
+        if (isNameExists && isPhoneExists) {
+            return existingUser.id;
+        }
+
+        // Prepare update data only if needed
+        const updateData: { name?: string[], phone?: string[] } = {};
+        if (!isNameExists) {
+            updateData.name = [...existingUser.name, name];
+        }
+        if (!isPhoneExists) {
+            updateData.phone = [...existingUser.phone, phone];
+        }
+
+        // Only make the update call if there are changes
+        if (Object.keys(updateData).length > 0) {
+            await prisma.users.update({
+                where: { id: existingUser.id },
+                data: updateData
+            });
+        }
+
+        return existingUser.id;
     }
 
-    // If not found, generate new UUID
-    return uuidv4();
+    // If not found, create new user
+    const newUser = await prisma.users.create({
+        data: {
+            email: email,
+            name: [name],
+            phone: [phone],
+            joined_date: new Date(),
+            is_business_user: false,
+            business_id: null,
+            is_registered: false
+        }
+    });
+
+    return newUser.id;
 }
 
 export async function getReservationByCode(confirmationCode: string) {
     try {
-        const reservation = await prisma.reservation.findUnique({
+        const reservation = await prisma.reservations.findUnique({
             where: { confirmation_code: confirmationCode },
-            include: { restaurant: true },
+            include: {
+                business_profiles: {
+                    include: {
+                        reservation_settings: true
+                    }
+                }
+            },
         });
-        return { success: true, reservation };
+
+        if (reservation) {
+            const { business_profiles, ...rest } = reservation;
+            return {
+                success: true,
+                reservation: {
+                    ...rest,
+                    business: {
+                        ...business_profiles,
+                        reservation_settings: business_profiles.reservation_settings
+                    }
+                } as Reservation
+            };
+        }
+
+        return { success: false, error: 'Reservation not found' };
     } catch (error) {
         console.error('Error fetching reservation:', error);
         return { success: false, error: 'Failed to fetch reservation' };
@@ -98,7 +172,7 @@ export async function getReservationByCode(confirmationCode: string) {
 }
 
 export async function getReservations(
-    restaurantId: number, startDate: Date, endDate: Date, restaurantTimezone: string
+    restaurantId: string, startDate: Date, endDate: Date, restaurantTimezone: string
 ): Promise<GetReservationsResponse> {
     try {
         const utcStartDate = convertToUtc(startOfDay(startDate), restaurantTimezone);
@@ -109,15 +183,15 @@ export async function getReservations(
         console.log('endDate: ', endDate);
         console.log('utcEndDate: ', utcEndDate);
 
-        const reservations = await prisma.reservation.findMany({
+        const reservations = await prisma.reservations.findMany({
             where: {
-                restaurant_id: restaurantId,
+                business_id: restaurantId,
                 date: {
                     gte: startOfDay(utcStartDate),
                     lte: endOfDay(utcEndDate),
                 },
                 status: {
-                    in: ['new', 'confirmed']
+                    in: ['new', 'cancelled', 'completed']
                 }
             },
             select: {
@@ -143,13 +217,13 @@ export async function getReservations(
 export async function createReservation(prevState: State, formData: FormData): Promise<State> {
     console.log('createReservation formData: ', formData);
     const validatedFields = CreateReservationSchema.safeParse({
-        restaurantId: parseInt(formData.get('restaurantId') as string),
+        restaurantId: formData.get('restaurantId'),
         customerName: formData.get('customerName'),
         customerEmail: formData.get('customerEmail'),
         customerPhone: formData.get('customerPhone'),
         partySize: parseInt(formData.get('partySize') as string),
         date: new Date(formData.get('date') as string),
-        timeSlotLength: parseInt(formData.get('timeSlotLength') as string),
+        timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
         timeSlotStart: formData.get('timeSlotStart'),
         dietaryRestrictions: formData.get('dietaryRestrictions'),
         otherDietaryRestrictions: formData.get('otherDietaryRestrictions'),
@@ -175,123 +249,131 @@ export async function createReservation(prevState: State, formData: FormData): P
     // retrieve the first image for use in email as thumbnail
     const restaurantThumbnail = data.restaurantImages[0] || '';
     // get customer ID
-    const customerId = await getOrCreateCustomerId(data.customerEmail);
+    const customerId = await getOrCreateUserId(data.customerEmail, data.customerName, data.customerPhone);
 
-    const { startDateTime, endDateTime } = calculateReservationTimes(
+    const { startTimeHours, startTimeMinutes, endTimeHours, endTimeMinutes } = calculateReservationTimes(
         data.date,
         data.timeSlotStart,
-        data.timeSlotLength,
+        data.timeSlotLengthMinutes,
         data.restaurantTimezone
     );
+    const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
+    const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
 
-    console.log('startDateTime: ', startDateTime);
-
-    const dateInRestaurantTz = data.date.toLocaleString('en-US', {
+    const dateStringInRestaurantTz = data.date.toLocaleString('en-US', {
         timeZone: data.restaurantTimezone,
         month: 'long',
         day: 'numeric',
         year: 'numeric'
     });
+    const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
-    const startTimeInRestaurantTz = startDateTime.toLocaleString('en-US', {
-        timeZone: data.restaurantTimezone,
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
 
-    try {
-        // First try block for database operation
-        const reservation = await prisma.reservation.create({
-            data: {
-                restaurant_id: data.restaurantId,
-                customer_id: customerId,
-                customer_name: data.customerName,
-                customer_email: data.customerEmail,
-                customer_phone: data.customerPhone,
-                party_size: data.partySize,
-                date: data.date,
-                timeslot_start: startDateTime,
-                timeslot_end: endDateTime,
-                dietary_restrictions: data.dietaryRestrictions === 'other'
-                    ? data.otherDietaryRestrictions
-                    : data.dietaryRestrictions,
-                special_occasions: data.specialOccasion === 'other'
-                    ? data.otherSpecialOccasion
-                    : data.specialOccasion,
-                special_requests: data.specialRequests,
-                confirmation_code: uuidv4(),
-                status: 'new',
-            },
-        });
+    let attempts = 0;
+    const maxAttempts = 5;
 
-        // Generate MAC and links
+    while (attempts < maxAttempts) {
+        const confirmationCode = generateConfirmationCode();
+
         try {
-            const mac = generateReservationMAC(
-                reservation.confirmation_code,
-                reservation.customer_email!
-            );
+            // First try block for database operation
+            const reservation = await prisma.reservations.create({
+                data: {
+                    business_id: data.restaurantId,
+                    customer_id: customerId,
+                    customer_name: data.customerName,
+                    customer_email: data.customerEmail,
+                    customer_phone: data.customerPhone,
+                    party_size: data.partySize,
+                    date: data.date,
+                    timeslot_start: startTime24HrString,
+                    timeslot_end: endTime24HrString,
+                    dietary_restrictions: data.dietaryRestrictions === 'other'
+                        ? data.otherDietaryRestrictions
+                        : data.dietaryRestrictions,
+                    special_occasions: data.specialOccasion === 'other'
+                        ? data.otherSpecialOccasion
+                        : data.specialOccasion,
+                    special_requests: data.specialRequests,
+                    confirmation_code: confirmationCode,
+                    status: 'new',
+                },
+            });
 
-            const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
-            const baseUrl = getBaseUrl();
-            const fullReservationLink = `${baseUrl}${reservationLink}`;
-
-            // Email sending
+            // 2nd try block to Generate MAC and links
             try {
-                await sendCreateOrModifyReservationEmail({
-                    mode: 'Create',
-                    to: data.customerEmail,
-                    customerName: data.customerName,
-                    restaurantName: data.restaurantName,
-                    // date: format(data.date, 'MMMM d, yyyy'),
-                    // time: format(startDateTime, 'h:mm a'),
-                    date: dateInRestaurantTz,
-                    time: startTimeInRestaurantTz,
-                    guests: data.partySize,
-                    address: data.restaurantAddress,
-                    reservationLink: fullReservationLink,
-                    restaurantThumbnail: restaurantThumbnail
-                });
+                const mac = generateReservationMAC(
+                    reservation.confirmation_code,
+                    reservation.customer_email!
+                );
 
-                revalidatePath(`/${data.restaurantId}`);
-                return {
-                    message: 'Reservation Created Successfully!',
-                    reservationLink
-                } as State;
+                const reservationLink = `/reservations/${reservation.confirmation_code}/${mac}`;
+                const baseUrl = getBaseUrl();
+                const fullReservationLink = `${baseUrl}${reservationLink}`;
 
-            } catch (emailError) {
-                console.error('Email sending failed:', emailError);
-                // Still return success but with a warning
+                // 3rd try block for Email sending
+                try {
+                    await sendCreateOrModifyReservationEmail({
+                        mode: 'Create',
+                        to: data.customerEmail,
+                        customerName: data.customerName,
+                        restaurantName: data.restaurantName,
+                        date: dateStringInRestaurantTz,
+                        time: startTime12HrString,
+                        guests: data.partySize,
+                        address: data.restaurantAddress,
+                        reservationLink: fullReservationLink,
+                        restaurantThumbnail: restaurantThumbnail
+                    });
+
+                    revalidatePath(`/${data.restaurantId}`);
+                    return {
+                        message: 'Reservation Created Successfully!',
+                        reservationLink
+                    } as State;
+
+                } catch (emailError) {
+                    console.error('Email sending failed:', emailError);
+                    // Still return success but with a warning
+                    return {
+                        message: 'Reservation Created Successfully (Email notification failed)',
+                        reservationLink,
+                        errors: 'Email notification could not be sent'
+                    } as State;
+                }
+
+            } catch (macError) {
+                console.error('MAC generation failed:', macError);
+                // This is a critical error as it affects the reservation link
+                throw new Error('Failed to generate secure reservation link');
+            }
+
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                // Unique constraint violation, regenerate confirmation code
+                attempts++;
+                continue;
+            }
+
+            if (error instanceof Error) {
+                console.error('Error creating reservation:', error.message);
                 return {
-                    message: 'Reservation Created Successfully (Email notification failed)',
-                    reservationLink,
-                    errors: 'Email notification could not be sent'
+                    message: error.message.includes('secure reservation link')
+                        ? 'Failed to generate reservation link'
+                        : 'Database Error: Failed to Create Reservation',
+                    errors: { database: ['Failed to create reservation.'] }
                 } as State;
             }
 
-        } catch (macError) {
-            console.error('MAC generation failed:', macError);
-            // This is a critical error as it affects the reservation link
-            throw new Error('Failed to generate secure reservation link');
-        }
-
-    } catch (error) {
-        if (error instanceof Error) {
-            console.error('Error creating reservation:', error.message);
+            console.error('Unknown error:', error);
             return {
-                message: error.message.includes('secure reservation link')
-                    ? 'Failed to generate reservation link'
-                    : 'Database Error: Failed to Create Reservation',
+                message: 'An unexpected error occurred while creating the reservation.',
                 errors: { database: ['Failed to create reservation.'] }
             } as State;
         }
-
-        console.error('Unknown error:', error);
-        return {
-            message: 'An unexpected error occurred while creating the reservation.',
-            errors: { database: ['Failed to create reservation.'] }
-        } as State;
     }
+
+    throw new Error('Failed to generate a unique confirmation code after multiple attempts');
 }
 
 export async function updateReservation(
@@ -305,13 +387,13 @@ export async function updateReservation(
         partySize: parseInt(formData.get('partySize') as string),
         date: new Date(formData.get('date') as string),
         timeSlotStart: formData.get('timeSlotStart'),
-        timeSlotLength: parseInt(formData.get('timeSlotLength') as string),
+        timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
         restaurantTimezone: formData.get('restaurantTimezone'),
         restaurantName: formData.get('restaurantName'),
         restaurantAddress: formData.get('restaurantAddress'),
         customerEmail: formData.get('customerEmail'),
         customerName: formData.get('customerName'),
-        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]')
+        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
     });
 
     if (!validatedFields.success) {
@@ -327,40 +409,37 @@ export async function updateReservation(
     // retrieve the first image for use in email as thumbnail
     const restaurantThumbnail = data.restaurantImages[0] || '';
 
-    const { startDateTime, endDateTime } = calculateReservationTimes(
+    const { startTimeHours, startTimeMinutes, endTimeHours, endTimeMinutes } = calculateReservationTimes(
         data.date,
         data.timeSlotStart,
-        data.timeSlotLength,
+        data.timeSlotLengthMinutes,
         data.restaurantTimezone
     );
+    const startTime24HrString = `${startTimeHours}:${startTimeMinutes}`;
+    const endTime24HrString = `${endTimeHours}:${endTimeMinutes}`;
 
-    const dateInRestaurantTz = data.date.toLocaleString('en-US', {
+    const dateStringInRestaurantTz = data.date.toLocaleString('en-US', {
         timeZone: data.restaurantTimezone,
         month: 'long',
         day: 'numeric',
         year: 'numeric'
     });
 
-    const startTimeInRestaurantTz = startDateTime.toLocaleString('en-US', {
-        timeZone: data.restaurantTimezone,
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
+    const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
     try {
         // First try block for database operation
-        const reservation = await prisma.reservation.update({
+        const reservation = await prisma.reservations.update({
             where: { confirmation_code: data.confirmationCode },
             data: {
                 party_size: data.partySize,
                 date: data.date,
-                timeslot_start: startDateTime,
-                timeslot_end: endDateTime,
-                status: 'modified',
+                timeslot_start: startTime24HrString,
+                timeslot_end: endTime24HrString,
+                status: 'new',
             },
             include: {
-                restaurant: true
+                business_profiles: true
             }
         });
 
@@ -382,8 +461,8 @@ export async function updateReservation(
                     to: data.customerEmail,
                     customerName: data.customerName,
                     restaurantName: data.restaurantName,
-                    date: dateInRestaurantTz,
-                    time: startTimeInRestaurantTz,
+                    date: dateStringInRestaurantTz,
+                    time: startTime12HrString,
                     guests: data.partySize,
                     address: data.restaurantAddress,
                     reservationLink: fullReservationLink,
@@ -436,21 +515,16 @@ export async function cancelReservation(
     reservation: Reservation
 ) {
     const dateInRestaurantTz = reservation.date.toLocaleString('en-US', {
-        timeZone: reservation.restaurant.timezone,
+        timeZone: reservation.business.timezone,
         month: 'long',
         day: 'numeric',
         year: 'numeric'
     });
 
-    const startTimeInRestaurantTz = reservation.timeslot_start.toLocaleString('en-US', {
-        timeZone: reservation.restaurant.timezone,
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
+    const startTimeIn12HrFormat = convertTo12HourFormat(reservation.timeslot_start);
 
     try {
-        await prisma.reservation.update({
+        await prisma.reservations.update({
             where: { confirmation_code: reservation.confirmation_code },
             data: { status: 'cancelled' },
         });
@@ -459,13 +533,13 @@ export async function cancelReservation(
         await sendCancellationEmail({
             to: reservation.customer_email!,
             customerName: reservation.customer_name!,
-            restaurantName: reservation.restaurant.name,
+            restaurantName: reservation.business.name,
             date: dateInRestaurantTz,
-            time: startTimeInRestaurantTz,
+            time: startTimeIn12HrFormat,
             guests: reservation.party_size,
-            address: reservation.restaurant.address,
-            restaurantSlug: reservation.restaurant.slug,
-            restaurantThumbnail: reservation.restaurant.images[0],
+            address: reservation.business.address,
+            restaurantSlug: reservation.business.slug,
+            restaurantThumbnail: reservation.business.images[0],
             baseUrl: getBaseUrl()
         });
 

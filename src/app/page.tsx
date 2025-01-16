@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default async function HomePage() {
-  const restaurants = await prisma.restaurant.findMany({
+  const restaurants = await prisma.business_profiles.findMany({
     where: {
       is_active: true,
     },
@@ -12,7 +12,7 @@ export default async function HomePage() {
       slug: true,
       name: true,
       cuisine: true,
-      short_description: true,
+      description: true,
       images: true,
     },
   });
@@ -41,7 +41,7 @@ export default async function HomePage() {
             {restaurant.cuisine && (
               <p className="text-sm text-gray-600 mb-2">{restaurant.cuisine}</p>
             )}
-            <p className="text-gray-700">{restaurant.short_description}</p>
+            <p className="text-gray-700">{restaurant.description}</p>
           </Link>
         ))}
       </div>

@@ -8,51 +8,125 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Restaurant {
-  id                           Int           @id @default(autoincrement())
-  slug                         String        @unique
-  name                         String
-  cuisine                      String?
-  address                      String
-  images                       String[]
-  policies                     String?
-  allowed_booking_advance_days Int
-  created_at                   DateTime      @default(now()) @db.Timestamptz(6)
-  is_active                    Boolean       @default(true)
-  is_deposit_required          Boolean
-  operating_hours              Json
-  short_description            String?
-  table_capacity               Json
-  time_slot_length             Int
-  updated_at                   DateTime      @default(now()) @db.Timestamptz(6)
-  reservations                 Reservation[]
-  timezone                     String
+model business_profiles {
+  id                                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                                         String                 @unique
+  name                                         String
+  cuisine                                      String?
+  address                                      String
+  google_place_id                              String?
+  google_latitude                              Decimal?               @db.Decimal(10, 8)
+  google_longitude                             Decimal?               @db.Decimal(11, 8)
+  google_maps_url                              String?
+  images                                       String[]
+  cancellation_policy                          String?
+  refund_policy                                String?
+  general_policy                               String?
+  data_usage_policy                            String?
+  min_allowed_booking_advance_hours            Int
+  max_allowed_booking_advance_hours            Int
+  allowed_cancellation_hours                   Int
+  created_at                                   DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                   DateTime               @default(now()) @db.Timestamptz(6)
+  is_active                                    Boolean                @default(true)
+  is_deposit_required                          Boolean
+  operating_hours                              Json
+  description                                  String?
+  timezone                                     String
+  owner_user_id                                String                 @db.Uuid
+  users_business_profiles_owner_user_idTousers users                  @relation("business_profiles_owner_user_idTousers", fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_business_profiles_owner_user_id")
+  products                                     products[]
+  reservation_settings                         reservation_settings[]
+  reservations                                 reservations[]
+  users_users_business_idTobusiness_profiles   users[]                @relation("users_business_idTobusiness_profiles")
 
-  @@index([slug])
+  @@index([owner_user_id], map: "idx_business_profiles_owner_user_id")
+  @@index([slug], map: "idx_business_profiles_slug")
 }
 
-model Reservation {
-  id                   Int        @id @default(autoincrement())
-  confirmation_code    String     @unique @default(uuid())
-  date                 DateTime   @db.Timestamptz(6)
-  status               String     @default("new")
-  created_at           DateTime   @default(now()) @db.Timestamptz(6)
-  customer_email       String?
-  customer_id          String     @db.Uuid
-  customer_name        String?
-  customer_phone       String?
-  deposit_amount       Decimal?   @db.Decimal(10, 2)
-  dietary_restrictions String?
-  is_deposit_made      Boolean?
+model products {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String            @db.Uuid
+  name              String
+  description       String?
+  price             Decimal           @db.Decimal
+  image_urls        String[]
+  is_active         Boolean
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  category          String
+  stock_quantity    Int?
+  discount          Decimal?          @db.Decimal
+  rating            Int?
+  tags              Json?
+  business_profiles business_profiles @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_products_business_id")
+
+  @@index([business_id], map: "idx_products_business_id")
+}
+
+model reservation_settings {
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id             String            @db.Uuid
+  day_of_week             Int
+  reservation_start_time  String
+  reservation_end_time    String
+  capacity_settings       Json
+  specific_date           DateTime?         @db.Date
+  is_default              Boolean
+  timeslot_length_minutes Int
+  business_profiles       business_profiles @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservation_settings_business_id")
+
+  @@index([business_id], map: "idx_reservation_settings_business_id")
+}
+
+model reservations {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  confirmation_code    String             @unique
+  date                 DateTime           @db.Timestamptz(6)
+  timeslot_start       String
+  timeslot_end         String
   party_size           Int
-  restaurant_id        Int
+  status               reservation_status
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
+  customer_id          String             @db.Uuid
+  customer_name        String
+  customer_email       String
+  customer_phone       String
+  deposit_amount       Decimal?           @db.Decimal
+  is_deposit_made      Boolean?
+  dietary_restrictions String?
+  business_id          String             @db.Uuid
   special_occasions    String?
   special_requests     String?
-  updated_at           DateTime   @default(now()) @db.Timestamptz(6)
-  timeslot_end         DateTime   @db.Timestamptz(6)
-  timeslot_start       DateTime   @db.Timestamptz(6)
-  restaurant           Restaurant @relation(fields: [restaurant_id], references: [id])
+  business_profiles    business_profiles  @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_business_id")
+  users                users              @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_customer_id")
 
-  @@index([restaurant_id, date])
-  @@index([customer_id])
+  @@index([business_id], map: "idx_reservations_business_id")
+  @@index([confirmation_code], map: "idx_reservations_confirmation_code")
+  @@index([customer_id], map: "idx_reservations_customer_id")
+  @@index([date], map: "idx_reservations_date")
+}
+
+model users {
+  id                                                       String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                    String              @unique
+  name                                                     String[]
+  phone                                                    String[]
+  joined_date                                              DateTime            @db.Timestamptz(6)
+  is_business_user                                         Boolean
+  business_id                                              String?             @db.Uuid
+  total_visits                                             Int?
+  is_registered                                            Boolean
+  business_profiles_business_profiles_owner_user_idTousers business_profiles[] @relation("business_profiles_owner_user_idTousers")
+  reservations                                             reservations[]
+  business_profiles_users_business_idTobusiness_profiles   business_profiles?  @relation("users_business_idTobusiness_profiles", fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_business_id")
+
+  @@index([email], map: "idx_users_email")
+}
+
+enum reservation_status {
+  new
+  cancelled
+  completed
 }

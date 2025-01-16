@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { format, addDays, startOfDay, isBefore } from 'date-fns';
+import { format, addDays, startOfDay, isBefore, isSameDay } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ import CreateReservationForm from './create-reservation-form';
 import ModifyReservationForm from './modify-reservation-form';
 import { generateTimeSlots } from '@/lib/utils/reservation';
 import { getReservations } from '@/lib/actions/reservation';
-import { Reservation, ReservationForTimeSlotGen, Restaurant } from '@/types';
+import { Reservation, ReservationForTimeSlotGen, BusinessProfile, ReservationSetting } from '@/types';
 import { convertToLocalTime } from '@/lib/utils/date-and-time';
 
 interface TimeSlot {
@@ -32,9 +32,9 @@ interface TimeSlot {
 }
 
 interface DatePickerProps {
-  restaurant: Restaurant;
+  restaurant: BusinessProfile;
   operatingHours: Record<string, string>;
-  tableCapacity: Record<string, number>;
+  reservationSettings: ReservationSetting[];
   isModifying: boolean;
   initialDate?: Date;
   initialPartySize?: number;
@@ -47,7 +47,7 @@ interface DatePickerProps {
 export default function DatePicker({
   restaurant,
   operatingHours,
-  tableCapacity,
+  reservationSettings,
   isModifying = false,
   initialDate,
   initialPartySize,
@@ -59,6 +59,7 @@ export default function DatePicker({
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || startOfDay(new Date()));
   const [partySize, setPartySize] = useState<number>(initialPartySize || 2);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [currentResSettings, setCurrentResSettings] = useState<ReservationSetting | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(() => {
     if (initialTime) {
       return {
@@ -70,7 +71,7 @@ export default function DatePicker({
     return null;
   });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
-  const maxDate = useMemo(() => addDays(new Date(), restaurant.allowed_booking_advance_days), [restaurant.allowed_booking_advance_days]);
+  const maxDate = useMemo(() => addDays(new Date(), restaurant.max_allowed_booking_advance_hours), [restaurant.max_allowed_booking_advance_hours]);
 
   // Fetch all reservations once during component mount
   useEffect(() => {
@@ -90,7 +91,7 @@ export default function DatePicker({
     }
 
     fetchAllReservations();
-  }, [restaurant.id, restaurant.allowed_booking_advance_days, maxDate, restaurant.timezone]);
+  }, [restaurant.id, restaurant.max_allowed_booking_advance_hours, maxDate, restaurant.timezone]);
 
   // Generate time slots when date or party size changes
   useEffect(() => {
@@ -107,18 +108,31 @@ export default function DatePicker({
 
     console.log('after date filter dateReservations: ', dateReservations);
 
+    const dayOfWeek = selectedDate.getDay();
+    const currentSettings = reservationSettings.find(s => s.day_of_week === dayOfWeek && s.is_default) ||
+      reservationSettings.find(s => s.specific_date && isSameDay(s.specific_date, selectedDate));
+
+    if (!currentSettings) {
+      setTimeSlots([]);
+      console.log(`No settings found for date ${selectedDate}.`);
+      return;
+    }
+
     const slots = generateTimeSlots(
       selectedDate,
       operatingHours,
-      restaurant.time_slot_length,
+      currentSettings.timeslot_length_minutes,
       dateReservations,
-      tableCapacity,
+      currentSettings.capacity_settings as Record<string, number>,
       partySize,
-      restaurant.timezone
+      restaurant.timezone,
+      currentSettings.reservation_start_time,
+      currentSettings.reservation_end_time
     );
 
     setTimeSlots(slots);
-  }, [selectedDate, partySize, allReservations, operatingHours, restaurant.time_slot_length, tableCapacity, restaurant.timezone]);
+    setCurrentResSettings(currentSettings);
+  }, [selectedDate, partySize, allReservations, operatingHours, reservationSettings, restaurant.timezone, currentResSettings]);
 
   useEffect(() => {
     if (isModifying && initialTime && timeSlots.length > 0) {
@@ -210,6 +224,7 @@ export default function DatePicker({
               restaurant={restaurant}
               reservation={reservation}
               onModificationComplete={onModificationComplete}
+              timeSlotLengthMinutes={currentResSettings?.timeslot_length_minutes ?? 0}
             />
           ) : null
         ) : (
@@ -218,6 +233,7 @@ export default function DatePicker({
             selectedTime={selectedSlot.start}
             partySize={partySize}
             restaurant={restaurant}
+            timeSlotLengthMinutes={currentResSettings?.timeslot_length_minutes ?? 0}
           />
         )
       )}

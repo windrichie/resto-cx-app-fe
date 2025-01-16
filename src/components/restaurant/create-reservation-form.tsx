@@ -24,18 +24,19 @@ import {
 import { createReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
 import { useRouter } from 'next/navigation';
-import { Restaurant } from '@/types';
+import { BusinessProfile } from '@/types';
 
 
 interface ReservationFormProps {
   selectedDate: Date;
   selectedTime: string;
   partySize: number;
-  restaurant: Restaurant;
+  restaurant: BusinessProfile;
+  timeSlotLengthMinutes: number;
 }
 
 export default function CreateReservationForm({
-  selectedDate, selectedTime, partySize, restaurant
+  selectedDate, selectedTime, partySize, restaurant, timeSlotLengthMinutes
 }: ReservationFormProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -70,7 +71,7 @@ export default function CreateReservationForm({
         <input type="hidden" name="date" value={selectedDate.toISOString()} />
         <input type="hidden" name="timeSlotStart" value={selectedTime} />
         <input type="hidden" name="partySize" value={partySize} />
-        <input type="hidden" name="timeSlotLength" value={restaurant.time_slot_length} />
+        <input type="hidden" name="timeSlotLengthMinutes" value={timeSlotLengthMinutes} />
         <input type="hidden" name="restaurantTimezone" value={restaurant.timezone} />
         <input type="hidden" name="restaurantName" value={restaurant.name} />
         <input type="hidden" name="restaurantAddress" value={restaurant.address} />
