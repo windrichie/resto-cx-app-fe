@@ -7,7 +7,7 @@ import DatePicker from '@/components/restaurant/date-picker';
 export const dynamic = 'force-dynamic';
 
 export async function generateStaticParams() {
-    const restaurants = await prisma.restaurant.findMany({
+    const restaurants = await prisma.business_profiles.findMany({
         select: { slug: true },
     });
 
@@ -39,7 +39,8 @@ export default async function RestaurantPage({
                 <div>
                     <DatePicker
                         operatingHours={restaurant.operating_hours as Record<string, string>}
-                        tableCapacity={restaurant.table_capacity as Record<string, number>}
+                        // tableCapacity={restaurant.table_capacity as Record<string, number>}
+                        reservationSettings={restaurant.reservation_settings}
                         restaurant={restaurant}
                         isModifying={false}
                     />

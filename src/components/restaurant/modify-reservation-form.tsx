@@ -14,16 +14,17 @@ import {
 } from "@/components/ui/dialog";
 import { updateReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
-import { Reservation, Restaurant } from '@/types';
+import { Reservation, BusinessProfile } from '@/types';
 import { useRouter } from 'next/navigation';
 
 interface ModifyReservationFormProps {
     selectedDate: Date;
     selectedTime: string;
     partySize: number;
-    restaurant: Restaurant;
+    restaurant: BusinessProfile;
     confirmationCode: string;
     reservation: Reservation;
+    timeSlotLengthMinutes: number;
     onModificationComplete?: () => void;
 }
 
@@ -34,6 +35,7 @@ export default function ModifyReservationForm({
     confirmationCode,
     restaurant,
     reservation,
+    timeSlotLengthMinutes,
     onModificationComplete
 }: ModifyReservationFormProps) {
     const router = useRouter();
@@ -74,7 +76,8 @@ export default function ModifyReservationForm({
                 <input type="hidden" name="date" value={selectedDate.toISOString()} />
                 <input type="hidden" name="timeSlotStart" value={selectedTime} />
                 <input type="hidden" name="partySize" value={partySize} />
-                <input type="hidden" name="timeSlotLength" value={restaurant.time_slot_length} />
+                <input type="hidden" name="timeSlotLengthMinutes" value={timeSlotLengthMinutes} />
+                {/* <input type="hidden" name="reservationSettings" value={JSON.stringify(restaurant.reservation_settings)} /> */}
                 <input type="hidden" name="restaurantTimezone" value={restaurant.timezone} />
                 <input type="hidden" name="restaurantAddress" value={restaurant.address} />
                 <input type="hidden" name="restaurantSlug" value={restaurant.slug} />

@@ -1,7 +1,8 @@
 // src/lib/utils/reservation.ts
-import { addMinutes, parse, format } from 'date-fns';
+import { addMinutes, parse, format, subMinutes } from 'date-fns';
 import { TimeSlot, ReservationForTimeSlotGen } from '@/types';
-import { convertToLocalTime } from './date-and-time';
+import { convertToLocalTime, getTimezoneOffsetMinutes } from './date-and-time';
+import { customAlphabet } from 'nanoid';
 
 export function determineTableCapacity(
     partySize: number,
@@ -27,41 +28,72 @@ export function determineTableCapacity(
 export function generateTimeSlots(
     selectedDate: Date,
     operatingHours: Record<string, string>,
-    timeSlotLength: number,
+    timeSlotLengthMinutes: number,
     existingReservations: ReservationForTimeSlotGen[],
     tableCapacity: Record<string, number>,
     partySize: number,
-    restaurantTimeZone: string
+    restaurantTimeZone: string,
+    reservationStartTime: string,
+    reservationEndTime: string
 ): TimeSlot[] {
-    const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = operatingHours[dayOfWeek];
 
-    if (!hours) return [];
+    console.log(`reservationStartTime: ${reservationStartTime}`);
+    console.log(`reservationEndTime: ${reservationEndTime} `);
+    console.log(`selectedDate: ${selectedDate} `);
+    console.log(`selectedDate.getFullYear: ${selectedDate.getFullYear()} `);
+    console.log(`selectedDate.getMonth: ${selectedDate.getMonth()} `);
+    console.log(`selectedDate.getDate: ${selectedDate.getDate()} `);
 
-    const [startStr, endStr] = hours.split(' - ');
+    // calculate the offset from restaurant TZ to UTC to be used later
+    const restaurantTimeZoneOffsetMinutes = getTimezoneOffsetMinutes(restaurantTimeZone);
+    console.log(`restaurantTimeZoneOffsetMinutes: ${restaurantTimeZoneOffsetMinutes}`);
 
-    // Parse operating hours for the selected date
-    const startTime = parse(startStr, 'h:mm aa', selectedDate);
-    const endTime = parse(endStr, 'h:mm aa', selectedDate);
+    const [reservationStartTimeHours, reservationStartTimeMinutes] = reservationStartTime.split(':').map(Number);
+    // create a new Date object that take into account the timezone offset
+    const reservationStartTimeDateTimeBeforeTZOffset = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        reservationStartTimeHours,
+        reservationStartTimeMinutes
+    ));
+    const reservationStartTimeDateTimeAfterTZOffset = subMinutes(reservationStartTimeDateTimeBeforeTZOffset, restaurantTimeZoneOffsetMinutes);
+    // console.log(`reservationStartTimeDateTimeBeforeTZOffset: ${reservationStartTimeDateTimeBeforeTZOffset}`);
+    console.log(`reservationStartTimeDateTimeAfterTZOffset: ${reservationStartTimeDateTimeAfterTZOffset}`);
+
+    // do the same for reservationEndTime
+    const [reservationEndTimeHours, reservationEndTimeMinutes] = reservationEndTime.split(':').map(Number);
+    // create a new Date object that take into account the timezone offset
+    const reservationEndTimeDateTimeBeforeTZOffset = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        reservationEndTimeHours,
+        reservationEndTimeMinutes
+    ));
+    const reservationEndTimeDateTimeAfterTZOffset = subMinutes(reservationEndTimeDateTimeBeforeTZOffset, restaurantTimeZoneOffsetMinutes);
+    // console.log(`reservationStartTimeDateTimeBeforeTZOffset: ${reservationStartTimeDateTimeBeforeTZOffset}`);
+    console.log(`reservationEndTimeDateTimeAfterTZOffset: ${reservationEndTimeDateTimeAfterTZOffset}`);
 
     // Get current time
     const currentTime = new Date();
 
     // Find suitable table
     const suitableTable = determineTableCapacity(partySize, tableCapacity);
+    console.log(`suitableTable: ${suitableTable} `);
     if (!suitableTable) return [];
 
     const [tableSize, tableCount] = suitableTable;
 
     const slots: TimeSlot[] = [];
-    let slotStartTime = startTime;
+    let currSlotStartTime = reservationStartTimeDateTimeAfterTZOffset;
 
-    while (slotStartTime < endTime) {
-        const slotEndTime = addMinutes(slotStartTime, timeSlotLength);
+    while (currSlotStartTime < reservationEndTimeDateTimeAfterTZOffset) {
+        const currSlotEndTime = addMinutes(currSlotStartTime, timeSlotLengthMinutes);
 
         // Skip slots that are in the past
-        if (slotEndTime <= currentTime) {
-            slotStartTime = slotEndTime;
+        if (currSlotEndTime <= currentTime) {
+            currSlotStartTime = currSlotEndTime;
             continue;
         }
 
@@ -74,27 +106,53 @@ export function generateTimeSlots(
         // Check existing reservations for this time slot
         const overlappingReservations = existingReservations.filter(res => {
 
-            // convert reservation timeslots to restaurant time zone
-            const resTimeslotStartRestaurantTz = convertToLocalTime(res.timeslot_start, restaurantTimeZone);
-            const resTimeslotEndRestaurantTz = convertToLocalTime(res.timeslot_end, restaurantTimeZone);
+            // create a Date time object for existing reservation time slot with the time zone in mind
+            const [existingResSlotStartHours, existingResSlotStartMinutes] = res.timeslot_start.split(':').map(Number);
+            // create a new Date object that take into account the timezone offset
+            const existingSlotStartDateTimeBeforeTZOffset = new Date(Date.UTC(
+                selectedDate.getFullYear(),
+                selectedDate.getMonth(),
+                selectedDate.getDate(),
+                existingResSlotStartHours,
+                existingResSlotStartMinutes
+            ));
+            const existingSlotStartDateTimeAfterTZOffset = subMinutes(existingSlotStartDateTimeBeforeTZOffset, restaurantTimeZoneOffsetMinutes);
+            console.log(`existingSlotStartDateTimeAfterTZOffset: ${existingSlotStartDateTimeAfterTZOffset}`);
+
+            // create a Date time object for existing reservation time slot with the time zone in mind
+            const [existingResSlotEndHours, existingResSlotEndMinutes] = res.timeslot_end.split(':').map(Number);
+            // create a new Date object that take into account the timezone offset
+            const existingSlotEndDateTimeBeforeTZOffset = new Date(Date.UTC(
+                selectedDate.getFullYear(),
+                selectedDate.getMonth(),
+                selectedDate.getDate(),
+                existingResSlotEndHours,
+                existingResSlotEndMinutes
+            ));
+            const existingSlotEndDateTimeAfterTZOffset = subMinutes(existingSlotEndDateTimeBeforeTZOffset, restaurantTimeZoneOffsetMinutes);
+            console.log(`existingSlotStartDateTimeAfterTZOffset: ${existingSlotEndDateTimeAfterTZOffset}`);
+
+            // // convert reservation timeslots to restaurant time zone
+            // const existingResSlotStartRestaurantTz = convertToLocalTime(res.timeslot_start, restaurantTimeZone);
+            // const existingResSlotEndRestaurantTz = convertToLocalTime(res.timeslot_end, restaurantTimeZone);
 
             // Debug logging
             console.log('Checking reservation:', {
-                resStart: resTimeslotStartRestaurantTz,
-                resEnd: resTimeslotEndRestaurantTz,
+                resStart: existingSlotStartDateTimeAfterTZOffset,
+                resEnd: existingSlotEndDateTimeAfterTZOffset,
                 resPartySize: res.party_size,
                 tableSize,
-                slotStartTime,
-                slotEndTime,
+                currSlotStartTime: currSlotStartTime,
+                currSlotEndTime: currSlotEndTime,
                 isPartySmallEnough: res.party_size <= tableSize,
-                isSlotBeforeResEnd: format(slotStartTime, 'HH:mm') < format(resTimeslotEndRestaurantTz, 'HH:mm'),
-                isSlotAfterResStart: format(slotEndTime, 'HH:mm') > format(resTimeslotStartRestaurantTz, 'HH:mm')
+                isSlotBeforeResEnd: currSlotStartTime < existingSlotEndDateTimeAfterTZOffset,
+                isSlotAfterResStart: currSlotEndTime > existingSlotStartDateTimeAfterTZOffset
             });
 
             return (
                 res.party_size <= tableSize && // Only count reservations using same or smaller table
-                format(slotStartTime, 'HH:mm') < format(resTimeslotEndRestaurantTz, 'HH:mm') &&
-                format(slotEndTime, 'HH:mm') > format(resTimeslotStartRestaurantTz, 'HH:mm')
+                currSlotStartTime < existingSlotEndDateTimeAfterTZOffset &&
+                currSlotEndTime > existingSlotStartDateTimeAfterTZOffset
             );
         });
 
@@ -104,13 +162,19 @@ export function generateTimeSlots(
         const isAvailable = overlappingReservations.length < tableCount;
 
         slots.push({
-            start: format(slotStartTime, 'h:mm aa'),
-            end: format(slotEndTime, 'h:mm aa'),
+            start: format(currSlotStartTime, 'h:mm aa'),
+            end: format(currSlotEndTime, 'h:mm aa'),
             available: isAvailable
         });
 
-        slotStartTime = slotEndTime;
+        currSlotStartTime = currSlotEndTime;
     }
 
     return slots;
+}
+
+export function generateConfirmationCode(): string {
+    const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+    const nanoid = customAlphabet(alphabet, 8);
+    return nanoid();
 }
