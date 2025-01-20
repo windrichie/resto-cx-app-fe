@@ -80,7 +80,9 @@ export function convertTo12HourFormat(time: string): string {
 
 export function convertTo24HourFormat(time: string): string {
     const [timePart, period] = time.split(' ');
-    let [hours, minutes] = timePart.split(':').map(Number);
+    const [hoursStr, minutesStr] = timePart.split(':');
+    let hours = Number(hoursStr);
+    const minutes = Number(minutesStr);
 
     if (period.toLowerCase() === 'pm' && hours !== 12) {
         hours += 12;
