@@ -9,7 +9,13 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
             reservation_settings: true
         }
     });
-    return restaurant;
+
+    if (!restaurant) return null;
+
+    return {
+        ...restaurant,
+        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) * 100 : null
+    };
 }
 
 export async function getAllRestaurants() {
@@ -19,7 +25,11 @@ export async function getAllRestaurants() {
         },
     });
 
-    return restaurants;
+    return restaurants.map(restaurant => ({
+        ...restaurant,
+        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) : null
+    }));
+
 }
 
 export function sortOperatingHours(operatingHours: Record<string, string>): [string, string][] {

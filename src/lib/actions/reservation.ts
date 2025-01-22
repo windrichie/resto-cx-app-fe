@@ -30,7 +30,8 @@ const CreateReservationSchema = z.object({
     restaurantTimezone: z.string(),
     restaurantName: z.string(),
     restaurantAddress: z.string(),
-    restaurantImages: z.array(z.string())
+    restaurantImages: z.array(z.string()),
+    paymentIntentId: z.string()
 });
 
 const ReservationSettingSchema = z.object({
@@ -56,8 +57,7 @@ const UpdateReservationSchema = z.object({
     restaurantAddress: z.string(),
     customerName: z.string(),
     customerEmail: z.string(),
-    restaurantImages: z.array(z.string()),
-    // reservationSettings: z.array(ReservationSettingSchema)
+    restaurantImages: z.array(z.string())
 });
 
 export type State = {
@@ -158,6 +158,7 @@ export async function getReservationByCode(confirmationCode: string) {
                     ...rest,
                     business: {
                         ...business_profiles,
+                        deposit_amount: business_profiles.deposit_amount ? Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
                         reservation_settings: business_profiles.reservation_settings
                     }
                 } as Reservation
@@ -233,7 +234,8 @@ export async function createReservation(prevState: State, formData: FormData): P
         restaurantTimezone: formData.get('restaurantTimezone'),
         restaurantName: formData.get('restaurantName'),
         restaurantAddress: formData.get('restaurantAddress'),
-        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]')
+        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
+        paymentIntentId: formData.get('paymentIntentId')
     });
 
     if (!validatedFields.success) {
@@ -297,6 +299,7 @@ export async function createReservation(prevState: State, formData: FormData): P
                     special_requests: data.specialRequests,
                     confirmation_code: confirmationCode,
                     status: 'new',
+                    deposit_payment_intent_id: data.paymentIntentId
                 },
             });
 
@@ -429,15 +432,27 @@ export async function updateReservation(
 
     try {
         // First try block for database operation
+        // Get payment intent ID from form data if it exists
+        const depositPaymentIntentId = formData.get('paymentIntentId');
+
+        // Prepare update data
+        const updateData: any = {
+            party_size: data.partySize,
+            date: data.date,
+            timeslot_start: startTime24HrString,
+            timeslot_end: endTime24HrString,
+            status: 'new',
+        };
+
+        // Only add deposit_payment_intent_id if it exists in form data
+        if (depositPaymentIntentId) {
+            updateData.deposit_payment_intent_id = depositPaymentIntentId;
+        }
+
+        // Update reservation with conditional payment intent
         const reservation = await prisma.reservations.update({
             where: { confirmation_code: data.confirmationCode },
-            data: {
-                party_size: data.partySize,
-                date: data.date,
-                timeslot_start: startTime24HrString,
-                timeslot_end: endTime24HrString,
-                status: 'new',
-            },
+            data: updateData,
             include: {
                 business_profiles: true
             }
