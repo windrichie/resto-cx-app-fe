@@ -149,7 +149,7 @@ export default function ModifyReservationForm({
                                 <p className="text-black font-bold text-lg mb-2">Card Authorization Active</p>
                                 <p className="text-green-700">
                                     Your card is already authorized for <span className="font-semibold py-1 rounded">SGD 100.00</span>.
-                                    This amount will only be charged if you don't show up for your reservation.
+                                    This amount will only be charged if you do not show up for your reservation.
                                 </p>
                             </div>
                         ) : (
@@ -166,7 +166,7 @@ export default function ModifyReservationForm({
                                             <ul className="list-disc list-inside space-y-1">
                                                 <li>Your card will be authorized for {restaurant.deposit_currency} {((restaurant.deposit_amount ?? 0) / 100).toFixed(2)} </li>
                                                 <li>No immediate charge will be made</li>
-                                                <li>The amount will only be charged if you don't show up for your reservation</li>
+                                                <li>The amount will only be charged if you do not show up for your reservation</li>
                                             </ul>
                                         </div>
                                     </div>

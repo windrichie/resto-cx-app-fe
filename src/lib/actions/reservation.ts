@@ -3,7 +3,6 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { v4 as uuidv4 } from 'uuid';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { Reservation, ReservationForTimeSlotGen } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
@@ -11,7 +10,7 @@ import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
 import { getBaseUrl } from '../utils/common';
 import { generateConfirmationCode } from '../utils/reservation';
-import { Prisma } from '@prisma/client';
+import { Prisma, reservation_status } from '@prisma/client';
 
 const CreateReservationSchema = z.object({
     restaurantId: z.string(),
@@ -59,6 +58,15 @@ const UpdateReservationSchema = z.object({
     customerEmail: z.string(),
     restaurantImages: z.array(z.string())
 });
+
+type ReservationUpdateData = {
+    party_size: number;
+    date: Date;
+    timeslot_start: string;
+    timeslot_end: string;
+    status: reservation_status;
+    deposit_payment_intent_id?: string;
+};
 
 export type State = {
     errors?: {
@@ -298,7 +306,7 @@ export async function createReservation(prevState: State, formData: FormData): P
                         : data.specialOccasion,
                     special_requests: data.specialRequests,
                     confirmation_code: confirmationCode,
-                    status: 'new',
+                    status: reservation_status.new,
                     deposit_payment_intent_id: data.paymentIntentId
                 },
             });
@@ -436,17 +444,17 @@ export async function updateReservation(
         const depositPaymentIntentId = formData.get('paymentIntentId');
 
         // Prepare update data
-        const updateData: any = {
+        const updateData: ReservationUpdateData = {
             party_size: data.partySize,
             date: data.date,
             timeslot_start: startTime24HrString,
             timeslot_end: endTime24HrString,
-            status: 'new',
+            status: reservation_status.new,
         };
 
         // Only add deposit_payment_intent_id if it exists in form data
         if (depositPaymentIntentId) {
-            updateData.deposit_payment_intent_id = depositPaymentIntentId;
+            updateData.deposit_payment_intent_id = String(depositPaymentIntentId)
         }
 
         // Update reservation with conditional payment intent
