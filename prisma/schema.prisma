@@ -34,6 +34,10 @@ model business_profiles {
   description                                  String?
   timezone                                     String
   owner_user_id                                String                 @db.Uuid
+  phone                                        String?
+  website                                      String?
+  deposit_amount                               Decimal?               @db.Decimal(10, 2)
+  deposit_currency                             String?                @default("SGD")
   users_business_profiles_owner_user_idTousers users                  @relation("business_profiles_owner_user_idTousers", fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_business_profiles_owner_user_id")
   products                                     products[]
   reservation_settings                         reservation_settings[]
@@ -80,27 +84,28 @@ model reservation_settings {
 }
 
 model reservations {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  confirmation_code    String             @unique
-  date                 DateTime           @db.Timestamptz(6)
-  timeslot_start       String
-  timeslot_end         String
-  party_size           Int
-  status               reservation_status
-  created_at           DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
-  customer_id          String             @db.Uuid
-  customer_name        String
-  customer_email       String
-  customer_phone       String
-  deposit_amount       Decimal?           @db.Decimal
-  is_deposit_made      Boolean?
-  dietary_restrictions String?
-  business_id          String             @db.Uuid
-  special_occasions    String?
-  special_requests     String?
-  business_profiles    business_profiles  @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_business_id")
-  users                users              @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_customer_id")
+  id                        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  confirmation_code         String             @unique
+  date                      DateTime           @db.Timestamptz(6)
+  timeslot_start            String
+  timeslot_end              String
+  party_size                Int
+  status                    reservation_status
+  created_at                DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime           @default(now()) @db.Timestamptz(6)
+  customer_id               String             @db.Uuid
+  customer_name             String
+  customer_email            String
+  customer_phone            String
+  deposit_amount            Decimal?           @db.Decimal
+  is_deposit_made           Boolean?
+  dietary_restrictions      String?
+  business_id               String             @db.Uuid
+  special_occasions         String?
+  special_requests          String?
+  deposit_payment_intent_id String?
+  business_profiles         business_profiles  @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_business_id")
+  users                     users              @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_customer_id")
 
   @@index([business_id], map: "idx_reservations_business_id")
   @@index([confirmation_code], map: "idx_reservations_confirmation_code")
@@ -129,4 +134,9 @@ enum reservation_status {
   new
   cancelled
   completed
+  arriving_soon @map("arriving-soon")
+  late
+  no_show       @map("no-show")
+  confirmed
+  seated
 }

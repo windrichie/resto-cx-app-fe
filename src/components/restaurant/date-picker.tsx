@@ -216,10 +216,6 @@ export default function DatePicker({
               selectedDate={selectedDate}
               selectedTime={selectedSlot.start}
               partySize={partySize}
-              // restaurantId={restaurant.id}
-              // restaurantName={restaurant.name}
-              // timeSlotLength={timeSlotLength}
-              // restaurantTimezone={restaurantTimezone}
               confirmationCode={confirmationCode ?? ''}
               restaurant={restaurant}
               reservation={reservation}

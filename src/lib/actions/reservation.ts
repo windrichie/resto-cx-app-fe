@@ -3,7 +3,6 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { v4 as uuidv4 } from 'uuid';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { Reservation, ReservationForTimeSlotGen } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
@@ -11,7 +10,7 @@ import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
 import { getBaseUrl } from '../utils/common';
 import { generateConfirmationCode } from '../utils/reservation';
-import { Prisma } from '@prisma/client';
+import { Prisma, reservation_status } from '@prisma/client';
 
 const CreateReservationSchema = z.object({
     restaurantId: z.string(),
@@ -30,7 +29,8 @@ const CreateReservationSchema = z.object({
     restaurantTimezone: z.string(),
     restaurantName: z.string(),
     restaurantAddress: z.string(),
-    restaurantImages: z.array(z.string())
+    restaurantImages: z.array(z.string()),
+    paymentIntentId: z.string()
 });
 
 const ReservationSettingSchema = z.object({
@@ -56,9 +56,17 @@ const UpdateReservationSchema = z.object({
     restaurantAddress: z.string(),
     customerName: z.string(),
     customerEmail: z.string(),
-    restaurantImages: z.array(z.string()),
-    // reservationSettings: z.array(ReservationSettingSchema)
+    restaurantImages: z.array(z.string())
 });
+
+type ReservationUpdateData = {
+    party_size: number;
+    date: Date;
+    timeslot_start: string;
+    timeslot_end: string;
+    status: reservation_status;
+    deposit_payment_intent_id?: string;
+};
 
 export type State = {
     errors?: {
@@ -158,6 +166,7 @@ export async function getReservationByCode(confirmationCode: string) {
                     ...rest,
                     business: {
                         ...business_profiles,
+                        deposit_amount: business_profiles.deposit_amount ? Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
                         reservation_settings: business_profiles.reservation_settings
                     }
                 } as Reservation
@@ -233,7 +242,8 @@ export async function createReservation(prevState: State, formData: FormData): P
         restaurantTimezone: formData.get('restaurantTimezone'),
         restaurantName: formData.get('restaurantName'),
         restaurantAddress: formData.get('restaurantAddress'),
-        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]')
+        restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
+        paymentIntentId: formData.get('paymentIntentId')
     });
 
     if (!validatedFields.success) {
@@ -296,7 +306,8 @@ export async function createReservation(prevState: State, formData: FormData): P
                         : data.specialOccasion,
                     special_requests: data.specialRequests,
                     confirmation_code: confirmationCode,
-                    status: 'new',
+                    status: reservation_status.new,
+                    deposit_payment_intent_id: data.paymentIntentId
                 },
             });
 
@@ -429,15 +440,27 @@ export async function updateReservation(
 
     try {
         // First try block for database operation
+        // Get payment intent ID from form data if it exists
+        const depositPaymentIntentId = formData.get('paymentIntentId');
+
+        // Prepare update data
+        const updateData: ReservationUpdateData = {
+            party_size: data.partySize,
+            date: data.date,
+            timeslot_start: startTime24HrString,
+            timeslot_end: endTime24HrString,
+            status: reservation_status.new,
+        };
+
+        // Only add deposit_payment_intent_id if it exists in form data
+        if (depositPaymentIntentId) {
+            updateData.deposit_payment_intent_id = String(depositPaymentIntentId)
+        }
+
+        // Update reservation with conditional payment intent
         const reservation = await prisma.reservations.update({
             where: { confirmation_code: data.confirmationCode },
-            data: {
-                party_size: data.partySize,
-                date: data.date,
-                timeslot_start: startTime24HrString,
-                timeslot_end: endTime24HrString,
-                status: 'new',
-            },
+            data: updateData,
             include: {
                 business_profiles: true
             }

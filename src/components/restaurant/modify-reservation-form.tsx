@@ -1,7 +1,7 @@
 // src/components/restaurant/modify-reservation-form.tsx
 'use client'
 
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, startTransition } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckIcon, XIcon } from "lucide-react";
@@ -16,6 +16,8 @@ import { updateReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
 import { Reservation, BusinessProfile } from '@/types';
 import { useRouter } from 'next/navigation';
+import ReservationPaymentForm from '@/components/restaurant/reservation-payment-form';
+import { verifyPayment } from '@/lib/actions/payment';
 
 interface ModifyReservationFormProps {
     selectedDate: Date;
@@ -48,6 +50,10 @@ export default function ModifyReservationForm({
     const [state, formAction, isPending] = useActionState(updateReservation, initialState);
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [showErrorDialog, setShowErrorDialog] = useState(false);
+    const [isCheckingPayment, setIsCheckingPayment] = useState(true);
+    const [isPaymentValid, setIsPaymentValid] = useState(false);
+    const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+    const [formRef, setFormRef] = useState<HTMLFormElement | null>(null);
 
     // Watch for successful/failed submission
     useEffect(() => {
@@ -67,9 +73,43 @@ export default function ModifyReservationForm({
         }
     }, [state, toast]);
 
+    // verify deposit payment
+    useEffect(() => {
+        async function checkPayment() {
+            if (restaurant.is_deposit_required && reservation.deposit_payment_intent_id) {
+                const isPaymentValid = await verifyPayment(reservation.deposit_payment_intent_id);
+                if (isPaymentValid) {
+                    setIsPaymentValid(true);
+                } else {
+                    setIsPaymentValid(false);
+                }
+            }
+            setIsCheckingPayment(false);
+        }
+
+        checkPayment();
+    }, [restaurant.is_deposit_required, reservation.deposit_payment_intent_id]);
+
+    const handlePaymentSuccess = async (intentId: string) => {
+        setPaymentIntentId(intentId);
+        startTransition(() => {
+            const formData = new FormData(formRef!);
+            formData.append('paymentIntentId', intentId);
+            formAction(formData);
+        });
+    };
+
+    const handlePaymentError = (error: string) => {
+        toast({
+            variant: "destructive",
+            title: "Payment Error",
+            description: error
+        });
+    };
+
     return (
         <>
-            <form action={formAction} className="space-y-4">
+            <form ref={setFormRef} action={formAction} className="space-y-4">
                 <input type="hidden" name="confirmationCode" value={confirmationCode} />
                 <input type="hidden" name="restaurantId" value={restaurant.id} />
                 <input type="hidden" name="restaurantName" value={restaurant.name} />
@@ -84,13 +124,82 @@ export default function ModifyReservationForm({
                 <input type="hidden" name="customerEmail" value={reservation.customer_email ?? ""} />
                 <input type="hidden" name="customerName" value={reservation.customer_name ?? ""} />
                 <input type="hidden" name="restaurantImages" value={JSON.stringify(restaurant.images)} />
+                {paymentIntentId && (
+                    <input
+                        type="hidden"
+                        name="paymentIntentId"
+                        value={paymentIntentId}
+                    />
+                )}
 
                 <h3 className="text-xl font-semibold mb-4">Update Reservation Details</h3>
                 <p className="mb-4">
                     Date: {selectedDate.toDateString()}, Time: {selectedTime}, Party Size: {partySize}
                 </p>
 
+                {restaurant.is_deposit_required && (
+                    <>
+                        {isCheckingPayment ? (
+                            <div className="text-center py-4">
+                                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                <p className="text-sm text-gray-600 mt-2">Verifying payment status...</p>
+                            </div>
+                        ) : isPaymentValid ? (
+                            <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg mb-4">
+                                <p className="text-black font-bold text-lg mb-2">Card Authorization Active</p>
+                                <p className="text-green-700">
+                                    Your card is already authorized for <span className="font-semibold py-1 rounded">SGD 100.00</span>.
+                                    This amount will only be charged if you do not show up for your reservation.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg mb-4">
+                                    <div className="flex flex-col gap-2">
+                                        <h3 className="text-lg font-semibold text-amber-800">
+                                            Deposit Required: {restaurant.deposit_currency} {((restaurant.deposit_amount ?? 0) / 100).toFixed(2)}
+                                        </h3>
+                                        <p className="text-amber-700">
+                                            This restaurant requires a refundable deposit to secure your reservation.
+                                        </p>
+                                        <div className="mt-2 text-sm text-amber-600">
+                                            <ul className="list-disc list-inside space-y-1">
+                                                <li>Your card will be authorized for {restaurant.deposit_currency} {((restaurant.deposit_amount ?? 0) / 100).toFixed(2)} </li>
+                                                <li>No immediate charge will be made</li>
+                                                <li>The amount will only be charged if you do not show up for your reservation</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <ReservationPaymentForm
+                                    customerEmail={reservation.customer_email}
+                                    depositAmountInCents={restaurant.deposit_amount ?? 0}
+                                    depositCurrency={restaurant.deposit_currency ?? 'SGD'}
+                                    restaurantId={restaurant.id}
+                                    onPaymentSuccess={handlePaymentSuccess}
+                                    onPaymentError={handlePaymentError}
+                                />
+                            </>
+                        )}
+                    </>
+                )}
+
                 <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isPending || (restaurant.is_deposit_required && !isPaymentValid)}
+                >
+                    {isPending ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Updating Reservation...
+                        </>
+                    ) : (
+                        'Confirm Changes'
+                    )}
+                </Button>
+
+                {/* <Button
                     type="submit"
                     className="w-full"
                     disabled={isPending}
@@ -103,14 +212,14 @@ export default function ModifyReservationForm({
                     ) : (
                         'Confirm Changes'
                     )}
-                </Button>
+                </Button> */}
 
                 {state.message && (
                     <p className={`mt-2 text-sm ${state.errors ? 'text-red-500' : 'text-green-500'}`}>
                         {state.message}
                     </p>
                 )}
-            </form>
+            </form >
 
             <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
                 <DialogContent className="text-center max-w-md">

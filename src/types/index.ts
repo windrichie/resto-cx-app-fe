@@ -17,6 +17,8 @@ export interface BusinessProfile {
     max_allowed_booking_advance_hours: number;
     allowed_cancellation_hours: number;
     is_deposit_required: boolean;
+    deposit_amount: number | null;
+    deposit_currency: string | null;
     is_active: boolean;
     created_at: Date;
     updated_at: Date;
@@ -26,6 +28,8 @@ export interface BusinessProfile {
     general_policy: string | null;
     data_usage_policy: string | null;
     owner_user_id: string;
+    phone: string | null;
+    website: string | null;
     reservation_settings: ReservationSetting[];
 }
 
@@ -59,26 +63,26 @@ export interface TimeSlot {
 }
 
 export interface Reservation {
-
     confirmation_code: string;
     date: Date;
     timeslot_start: string;
     timeslot_end: string;
     party_size: number;
-    status: 'new' | 'cancelled' | 'completed';
+    status: 'new' | 'cancelled' | 'completed' | 'arriving-soon' | 'late' | 'no-show' | 'confirmed' | 'seated';
     created_at: Date;
     updated_at: Date;
     customer_id: string;
     customer_name: string;
     customer_email: string;
     customer_phone: string;
-    deposit_amount: Decimal | null;
+    deposit_amount: number | null;
     is_deposit_made: boolean | null;
     dietary_restrictions: string | null;
     business_id: string;
     special_occasions: string | null;
     special_requests: string | null;
     business: BusinessProfileWithReservationSettings;
+    deposit_payment_intent_id: string | null;
 }
 
 export interface User {

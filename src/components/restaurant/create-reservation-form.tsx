@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState, useEffect } from 'react';
+import { useActionState, useState, useEffect, startTransition } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ import { createReservation, State } from '@/lib/actions/reservation';
 import { format } from "date-fns";
 import { useRouter } from 'next/navigation';
 import { BusinessProfile } from '@/types';
+import ReservationPaymentForm from './reservation-payment-form';
 
 
 interface ReservationFormProps {
@@ -45,6 +46,8 @@ export default function CreateReservationForm({
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);;
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string>('');
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [formRef, setFormRef] = useState<HTMLFormElement | null>(null);
 
   // Watch for successful/failed submission
   useEffect(() => {
@@ -64,9 +67,27 @@ export default function CreateReservationForm({
     }
   }, [state, toast]);
 
+  const handlePaymentSuccess = async (intentId: string) => {
+    setPaymentIntentId(intentId);
+    startTransition(() => {
+      const formData = new FormData(formRef!);
+      formData.append('paymentIntentId', intentId);
+      formAction(formData);
+    });
+  };
+
+  const handlePaymentError = (error: string) => {
+    toast({
+      variant: "destructive",
+      title: "Payment Error",
+      description: error
+    });
+  };
+
+
   return (
     <>
-      <form action={formAction} className="space-y-4">
+      <form ref={setFormRef} action={formAction} className="space-y-4">
         <input type="hidden" name="restaurantId" value={restaurant.id} />
         <input type="hidden" name="date" value={selectedDate.toISOString()} />
         <input type="hidden" name="timeSlotStart" value={selectedTime} />
@@ -76,6 +97,13 @@ export default function CreateReservationForm({
         <input type="hidden" name="restaurantName" value={restaurant.name} />
         <input type="hidden" name="restaurantAddress" value={restaurant.address} />
         <input type="hidden" name="restaurantImages" value={JSON.stringify(restaurant.images)} />
+        {paymentIntentId && (
+          <input
+            type="hidden"
+            name="paymentIntentId"
+            value={paymentIntentId}
+          />
+        )}
 
         <h3 className="text-xl font-semibold mb-4">Reservation Details</h3>
         <p className="mb-4">
@@ -201,10 +229,40 @@ export default function CreateReservationForm({
           </div>
         </div>
 
+        {restaurant.is_deposit_required && (
+          <>
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg mb-4">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-lg font-semibold text-amber-800">
+                  Deposit Required: {restaurant.deposit_currency} {((restaurant.deposit_amount ?? 0) / 100).toFixed(2)}
+                </h3>
+                <p className="text-amber-700">
+                  This restaurant requires a refundable deposit to secure your reservation.
+                </p>
+                <div className="mt-2 text-sm text-amber-600">
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Your card will be authorized for {restaurant.deposit_currency} {((restaurant.deposit_amount ?? 0) / 100).toFixed(2)} </li>
+                    <li>No immediate charge will be made</li>
+                    <li>The amount will only be charged if you do not show up for your reservation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <ReservationPaymentForm
+              onPaymentSuccess={handlePaymentSuccess}
+              onPaymentError={handlePaymentError}
+              customerEmail={customerEmail}
+              depositAmountInCents={restaurant.deposit_amount ?? 0}
+              depositCurrency={restaurant.deposit_currency ?? 'SGD'} // default to SGD
+              restaurantId={restaurant.id}
+            />
+          </>
+        )}
+
         <Button
           type="submit"
           className="w-full"
-          disabled={isPending}
+          disabled={isPending || restaurant.is_deposit_required}
         >
           {isPending ? (
             <>
