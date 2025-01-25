@@ -56,10 +56,18 @@ export default function DatePicker({
   reservation,
   onModificationComplete
 }: DatePickerProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || startOfDay(new Date()));
+  const minDate = useMemo(() => {
+    const now = new Date();
+    return addDays(now, Math.ceil(restaurant.min_allowed_booking_advance_hours / 24));
+  }, [restaurant.min_allowed_booking_advance_hours]);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (initialDate) return initialDate;
+    return startOfDay(minDate);
+  });
   const [partySize, setPartySize] = useState<number>(initialPartySize || 2);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [currentResSettings, setCurrentResSettings] = useState<ReservationSetting | null>(null);
+  const [openCalendar, setOpenCalendar] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(() => {
     if (initialTime) {
       return {
@@ -72,6 +80,12 @@ export default function DatePicker({
   });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
   const maxDate = useMemo(() => addDays(new Date(), restaurant.max_allowed_booking_advance_hours), [restaurant.max_allowed_booking_advance_hours]);
+  // const minDate = useMemo(() => {
+  //   const now = new Date();
+  //   const nearestDate = addDays(now, Math.ceil(restaurant.min_allowed_booking_advance_hours / 24 - 1));
+  //   console.log('nearestDate:', nearestDate);
+  //   return nearestDate;
+  // }, [restaurant.min_allowed_booking_advance_hours]);
 
   // Fetch all reservations once during component mount
   useEffect(() => {
@@ -165,7 +179,7 @@ export default function DatePicker({
 
       <div>
         <Label>Select Date</Label>
-        <Popover>
+        <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -179,15 +193,21 @@ export default function DatePicker({
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              onSelect={(date) => {
+                if (date) {
+                  setSelectedDate(date);
+                  setOpenCalendar(false);
+                }
+              }}
               disabled={(date) =>
-                isBefore(date, startOfDay(new Date())) ||
+                isBefore(date, startOfDay(minDate)) ||
                 isBefore(maxDate, date)
               }
             />
           </PopoverContent>
         </Popover>
       </div>
+
 
       {timeSlots.length > 0 && (
         <div>
