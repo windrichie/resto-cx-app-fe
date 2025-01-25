@@ -4,33 +4,88 @@ import { TimeSlot, ReservationForTimeSlotGen } from '@/types';
 import { convertToLocalTime, getTimezoneOffsetMinutes } from './date-and-time';
 import { customAlphabet } from 'nanoid';
 
+
+interface TableType {
+    quantity: number;
+    tableTypeId: string;
+    tableCapacity: number;
+    tableTypeName: string;
+}
+interface TableSettings {
+    available_tables: TableType[];
+}
+interface TableType {
+    quantity: number;
+    tableTypeId: string;
+    tableCapacity: number;
+    tableTypeName: string;
+}
+interface TableSettings {
+    available_tables: TableType[];
+}
+interface TableCapacityResult {
+    success: boolean;
+    capacity?: number;
+    quantity?: number;
+    error?: {
+        code: 'NO_TABLES' | 'NO_SUITABLE_TABLE';
+        message: string;
+        partySize?: number;
+        maxCapacity?: number;
+    };
+}
+
 export function determineTableCapacity(
     partySize: number,
-    tableCapacity: Record<string, number>
-): [number, number] | null {
-    // Convert table_capacity keys to numbers and sort them
-    const sortedCapacities = Object.entries(tableCapacity)
-        .map(([key, value]) => [parseInt(key.split('-')[0]), value])
-        .sort(([a], [b]) => (a as number) - (b as number));
-
-    console.log('sortedCapacities: ', sortedCapacities);
-
-    // Find the smallest table that can accommodate the party size
-    for (const [capacity, count] of sortedCapacities) {
-        if (partySize <= capacity) {
-            return [capacity, count as number];
-        }
+    tableSettings: TableSettings
+): TableCapacityResult {
+    // Guard clause for empty or invalid table settings
+    if (!tableSettings?.available_tables?.length) {
+        return {
+            success: false,
+            error: {
+                code: 'NO_TABLES',
+                message: 'No tables are configured for this restaurant'
+            }
+        };
     }
 
-    return null;
+    // Sort available tables by capacity (ascending)
+    const sortedTables = [...tableSettings.available_tables]
+        .sort((a, b) => a.tableCapacity - b.tableCapacity);
+
+    // Find the first table that can accommodate the party size
+    const suitableTable = sortedTables.find(
+        table => table.tableCapacity >= partySize
+    );
+
+    // If no suitable table found, return error with helpful information
+    if (!suitableTable) {
+        const maxCapacity = Math.max(...sortedTables.map(t => t.tableCapacity));
+        return {
+            success: false,
+            error: {
+                code: 'NO_SUITABLE_TABLE',
+                message: `No table available for party size of ${partySize}. Maximum capacity is ${maxCapacity}`,
+                partySize,
+                maxCapacity
+            }
+        };
+    }
+
+    // Return successful result with table details
+    return {
+        success: true,
+        capacity: suitableTable.tableCapacity,
+        quantity: suitableTable.quantity
+    };
 }
 
 export function generateTimeSlots(
     selectedDate: Date,
-    operatingHours: Record<string, string>,
     timeSlotLengthMinutes: number,
     existingReservations: ReservationForTimeSlotGen[],
-    tableCapacity: Record<string, number>,
+    tableSettings: TableSettings,
     partySize: number,
     restaurantTimeZone: string,
     reservationStartTime: string,
@@ -79,11 +134,16 @@ export function generateTimeSlots(
     const currentTime = new Date();
 
     // Find suitable table
-    const suitableTable = determineTableCapacity(partySize, tableCapacity);
-    console.log(`suitableTable: ${suitableTable} `);
-    if (!suitableTable) return [];
+    const tableResult = determineTableCapacity(partySize, tableSettings);
+    console.log('Table capacity result:', tableResult);
 
-    const [tableSize, tableCount] = suitableTable;
+    if (!tableResult.success) {
+        console.error(tableResult.error?.message);
+        return []; // Return empty array if no suitable tables found
+    }
+    // Destructure capacity and quantity from successful result
+    const tableSize = tableResult.capacity!;
+    const tableCount = tableResult.quantity!;
 
     const slots: TimeSlot[] = [];
     let currSlotStartTime = reservationStartTimeDateTimeAfterTZOffset;

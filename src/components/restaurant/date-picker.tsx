@@ -120,10 +120,9 @@ export default function DatePicker({
 
     const slots = generateTimeSlots(
       selectedDate,
-      operatingHours,
       currentSettings.timeslot_length_minutes,
       dateReservations,
-      currentSettings.capacity_settings as Record<string, number>,
+      currentSettings.capacity_settings,
       partySize,
       restaurant.timezone,
       currentSettings.reservation_start_time,

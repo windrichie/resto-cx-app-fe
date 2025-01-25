@@ -38,11 +38,11 @@ model business_profiles {
   website                                      String?
   deposit_amount                               Decimal?               @db.Decimal(10, 2)
   deposit_currency                             String?                @default("SGD")
+  table_capacity                               Json?                  @db.Json
   users_business_profiles_owner_user_idTousers users                  @relation("business_profiles_owner_user_idTousers", fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_business_profiles_owner_user_id")
   products                                     products[]
   reservation_settings                         reservation_settings[]
   reservations                                 reservations[]
-  users_users_business_idTobusiness_profiles   users[]                @relation("users_business_idTobusiness_profiles")
 
   @@index([owner_user_id], map: "idx_business_profiles_owner_user_id")
   @@index([slug], map: "idx_business_profiles_slug")
@@ -120,12 +120,13 @@ model users {
   phone                                                    String[]
   joined_date                                              DateTime            @db.Timestamptz(6)
   is_business_user                                         Boolean
-  business_id                                              String?             @db.Uuid
+  business_id_for_cx                                       String[]            @db.Uuid
   total_visits                                             Int?
   is_registered                                            Boolean
+  business_id_for_staff                                    String[]            @db.Uuid
+  is_external_cx                                           Boolean
   business_profiles_business_profiles_owner_user_idTousers business_profiles[] @relation("business_profiles_owner_user_idTousers")
   reservations                                             reservations[]
-  business_profiles_users_business_idTobusiness_profiles   business_profiles?  @relation("users_business_idTobusiness_profiles", fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_business_id")
 
   @@index([email], map: "idx_users_email")
 }

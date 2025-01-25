@@ -33,16 +33,27 @@ export interface BusinessProfile {
     reservation_settings: ReservationSetting[];
 }
 
+export interface TableSetting {
+    quantity: number;
+    tableTypeId: string;
+    tableCapacity: number;
+    tableTypeName: string;
+}
+
+export interface CapacitySettings {
+    available_tables: TableSetting[];
+}
+
 export interface ReservationSetting {
     id: string;
     business_id: string;
     day_of_week: number;
+    timeslot_length_minutes: number;
     reservation_start_time: string;
     reservation_end_time: string;
-    capacity_settings: JsonValue;
-    specific_date: Date | null;
+    capacity_settings: CapacitySettings;
     is_default: boolean;
-    timeslot_length_minutes: number;
+    specific_date?: Date | null;
 }
 
 export interface BusinessProfileWithReservationSettings extends BusinessProfile {

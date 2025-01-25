@@ -1,6 +1,6 @@
 // src/lib/services/restaurant.ts
 import { prisma } from '@/lib/prisma';
-import type { BusinessProfile } from '@/types';
+import type { BusinessProfile, CapacitySettings } from '@/types';
 
 export async function getRestaurant(slug: string): Promise<BusinessProfile | null> {
     const restaurant = await prisma.business_profiles.findUnique({
@@ -12,9 +12,16 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
 
     if (!restaurant) return null;
 
+    // Transform reservation settings to ensure proper typing of capacity_settings
+    const transformedReservationSettings = restaurant.reservation_settings.map(setting => ({
+        ...setting,
+        capacity_settings: setting.capacity_settings as unknown as CapacitySettings
+    }));
+
     return {
         ...restaurant,
-        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) * 100 : null
+        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) * 100 : null,
+        reservation_settings: transformedReservationSettings
     };
 }
 

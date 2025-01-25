@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { Reservation, ReservationForTimeSlotGen } from '@/types';
+import { Reservation, ReservationForTimeSlotGen, TableSetting } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
@@ -137,7 +137,7 @@ async function getOrCreateUserId(
             phone: [phone],
             joined_date: new Date(),
             is_business_user: false,
-            business_id: null,
+            is_external_cx: true,
             is_registered: false
         }
     });
@@ -160,6 +160,24 @@ export async function getReservationByCode(confirmationCode: string) {
 
         if (reservation) {
             const { business_profiles, ...rest } = reservation;
+
+            const transformedReservationSettings = business_profiles.reservation_settings.map(setting => {
+                // Parse the JSON value and validate its structure
+                const parsedCapacitySettings = (setting.capacity_settings as unknown) as { available_tables: TableSetting[] };
+
+                // Ensure the parsed data has the correct structure
+                if (!parsedCapacitySettings || !Array.isArray(parsedCapacitySettings.available_tables)) {
+                    throw new Error('Invalid capacity settings format');
+                }
+
+                return {
+                    ...setting,
+                    capacity_settings: {
+                        available_tables: parsedCapacitySettings.available_tables
+                    }
+                };
+            });
+
             return {
                 success: true,
                 reservation: {
@@ -167,7 +185,7 @@ export async function getReservationByCode(confirmationCode: string) {
                     business: {
                         ...business_profiles,
                         deposit_amount: business_profiles.deposit_amount ? Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
-                        reservation_settings: business_profiles.reservation_settings
+                        reservation_settings: transformedReservationSettings
                     }
                 } as Reservation
             };
