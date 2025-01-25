@@ -1,8 +1,14 @@
 'use client'
 
-import { useState } from 'react';
-import { format } from 'date-fns';
+import { useMemo, useState } from 'react';
+import { differenceInHours, format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+  } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { CalendarDays, Clock, Users, User, Mail, Phone, Hash } from 'lucide-react';
 import RestaurantDetails from '@/components/restaurant/details';
@@ -11,7 +17,7 @@ import CancelDialog from '@/components/restaurant/cancel-dialog';
 import { cancelReservation } from '@/lib/actions/reservation';
 import CancelledReservationView from './cancelled-reservation';
 import { Reservation } from '@/types/index';
-import { convertTo12HourFormat } from '@/lib/utils/date-and-time';
+import { convertTo12HourFormat, convertToLocalTime } from '@/lib/utils/date-and-time';
 
 interface ReservationManagerProps {
     reservation: Reservation;
@@ -22,6 +28,39 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
     const [isEditing, setIsEditing] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [isPending, setIsPending] = useState(false);
+
+    const isWithinCancellationPeriod = useMemo(() => {
+        const now = new Date();
+
+        // Create a date object combining reservation date and timeslot
+        const reservationDateTime = new Date(
+            reservation.date.getFullYear(),
+            reservation.date.getMonth(),
+            reservation.date.getDate(),
+            ...reservation.timeslot_start.split(':').map(Number) // Split HH:mm into hours and minutes
+        );
+        console.log(`reservationDateTime: ${reservationDateTime}`);
+
+        // Convert both times to the restaurant's timezone for accurate comparison
+        const nowInRestaurantTz = convertToLocalTime(now, reservation.business.timezone);
+        const reservationTimeInRestaurantTz = convertToLocalTime(reservationDateTime, reservation.business.timezone);
+        console.log(`nowInRestaurantTz: ${nowInRestaurantTz}`)
+        console.log(`reservationTimeInRestaurantTz: ${reservationTimeInRestaurantTz}`)
+
+        // Calculate hours difference
+        const hoursUntilReservation = differenceInHours(
+            reservationTimeInRestaurantTz,
+            nowInRestaurantTz
+        );
+
+        return hoursUntilReservation <= reservation.business.allowed_cancellation_hours;
+    }, [
+        reservation.date,
+        reservation.timeslot_start,
+        reservation.business.timezone,
+        reservation.business.allowed_cancellation_hours
+    ]);
+
 
     const handleCancel = async () => {
         setIsPending(true);
@@ -70,23 +109,54 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-semibold">Reservation Details</h2>
                             <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsEditing(!isEditing)}
-                                    disabled={isCancelled(reservation.status) || isPending}
-                                >
-                                    {isEditing ? 'Cancel Modification' : 'Modify'}
-                                </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setIsEditing(!isEditing)}
+                                                    disabled={isCancelled(reservation.status) ||
+                                                        isPending ||
+                                                        isWithinCancellationPeriod}
+                                                >
+                                                    {isEditing ? 'Cancel Modification' : 'Modify'}
+                                                </Button>
+                                            </span>
+                                        </TooltipTrigger>
+                                        {isWithinCancellationPeriod && (
+                                            <TooltipContent>
+                                                <p>Modifications are not allowed within {reservation.business.allowed_cancellation_hours} hours of the reservation</p>
+                                            </TooltipContent>
+                                        )}
+                                    </Tooltip>
+                                </TooltipProvider>
+
                                 {!isEditing && (
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => setShowCancelDialog(true)}
-                                        disabled={isCancelled(reservation.status) || isPending}
-                                    >
-                                        Cancel
-                                    </Button>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => setShowCancelDialog(true)}
+                                                        disabled={isCancelled(reservation.status) ||
+                                                            isPending ||
+                                                            isWithinCancellationPeriod}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                </span>
+                                            </TooltipTrigger>
+                                            {isWithinCancellationPeriod && (
+                                                <TooltipContent>
+                                                    <p>Cancellations are not allowed within {reservation.business.allowed_cancellation_hours} hours of the reservation</p>
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 )}
                             </div>
                         </div>
