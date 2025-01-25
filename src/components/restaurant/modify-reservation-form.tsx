@@ -252,12 +252,12 @@ export default function ModifyReservationForm({
                         </div>
                     </div>
 
-                    {state.reservationLink && (
+                    {/* {state.reservationLink && (
                         <div className="mt-4 p-4 bg-muted rounded-lg">
                             <p className="text-sm text-muted-foreground mb-2">Reservation Link (Development Only - access this link to view your reservation)</p>
                             <p className="text-sm break-all font-mono">{state.reservationLink}</p>
                         </div>
-                    )}
+                    )} */}
 
                     <DialogFooter>
                         <Button className="w-full" onClick={() => {
