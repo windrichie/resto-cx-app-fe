@@ -123,8 +123,9 @@ export default function DatePicker({
     console.log('after date filter dateReservations: ', dateReservations);
 
     const dayOfWeek = selectedDate.getDay();
-    const currentSettings = reservationSettings.find(s => s.day_of_week === dayOfWeek && s.is_default) ||
-      reservationSettings.find(s => s.specific_date && isSameDay(s.specific_date, selectedDate));
+    const currentSettings = reservationSettings.find(s => s.specific_date && isSameDay(s.specific_date, selectedDate)) ||
+      reservationSettings.find(s => s.day_of_week === dayOfWeek && s.is_default);
+    console.log('currentSettings:', currentSettings);
 
     if (!currentSettings) {
       setTimeSlots([]);
