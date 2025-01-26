@@ -221,8 +221,9 @@ export default function DatePicker({
                 onClick={() => setSelectedSlot(slot)}
                 disabled={!slot.available}
                 size="sm"
+                className="text-sm"  // Added to ensure text fits nicely
               >
-                {slot.start}
+                {`${slot.start} - ${slot.end}`}
               </Button>
             ))}
           </div>
