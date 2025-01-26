@@ -133,6 +133,12 @@ export default function DatePicker({
       return;
     }
 
+    if (!currentSettings.reservation_start_time && !currentSettings.reservation_end_time && currentSettings.capacity_settings.available_tables.length == 0) {
+      setTimeSlots([]);
+      console.log(`Found a reservation setting, but no available tables, no reservation times set for ${selectedDate}.`);
+      return;
+    }
+
     const slots = generateTimeSlots(
       selectedDate,
       currentSettings.timeslot_length_minutes,
@@ -209,8 +215,7 @@ export default function DatePicker({
         </Popover>
       </div>
 
-
-      {timeSlots.length > 0 && (
+      {timeSlots.length > 0 ? (
         <div>
           <Label>Available Time Slots</Label>
           <div className="grid grid-cols-3 gap-2 mt-2">
@@ -221,12 +226,18 @@ export default function DatePicker({
                 onClick={() => setSelectedSlot(slot)}
                 disabled={!slot.available}
                 size="sm"
-                className="text-sm"  // Added to ensure text fits nicely
+                className="text-sm"
               >
                 {`${slot.start} - ${slot.end}`}
               </Button>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="mt-2 p-4 bg-gray-50 rounded-md">
+          <span className="text-sm text-gray-600 flex items-center gap-2">
+            No reservations available for this date. Please select another day.
+          </span>
         </div>
       )}
 
