@@ -107,3 +107,15 @@ export interface User {
     total_visits: number | null;
     is_registered: boolean;
 }
+
+type OpHoursTimeSlot = {
+    start: string;
+    end: string;
+};
+
+type DaySchedule = {
+    enabled: boolean;
+    timeSlots: OpHoursTimeSlot[];
+};
+
+export type OperatingHours = Record<string, DaySchedule>;

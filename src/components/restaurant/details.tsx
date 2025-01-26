@@ -2,8 +2,8 @@ import Image from 'next/image';
 import type { BusinessProfile } from '@/types/index';
 import { sortOperatingHours } from '@/lib/actions/restaurant';
 import { Globe, MapPin, Phone } from 'lucide-react';
+import { OperatingHours } from '@/types/index';
 
-type OperatingHours = Record<string, string>;
 
 export default function RestaurantDetails({
     restaurant
