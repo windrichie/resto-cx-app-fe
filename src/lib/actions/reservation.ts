@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { Reservation, ReservationForTimeSlotGen, TableSetting } from '@/types';
+import { Reservation, ReservationForTimeSlotGen, ReservationSettingTimeSlotRange, TableSetting } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
@@ -164,6 +164,7 @@ export async function getReservationByCode(confirmationCode: string) {
             const transformedReservationSettings = business_profiles.reservation_settings.map(setting => {
                 // Parse the JSON value and validate its structure
                 const parsedCapacitySettings = (setting.capacity_settings as unknown) as { available_tables: TableSetting[] };
+                const parsedTimeSlots = (setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[]) || [];
 
                 // Ensure the parsed data has the correct structure
                 if (!parsedCapacitySettings || !Array.isArray(parsedCapacitySettings.available_tables)) {
@@ -172,6 +173,7 @@ export async function getReservationByCode(confirmationCode: string) {
 
                 return {
                     ...setting,
+                    available_reservation_time_slots: parsedTimeSlots,
                     capacity_settings: {
                         available_tables: parsedCapacitySettings.available_tables
                     }

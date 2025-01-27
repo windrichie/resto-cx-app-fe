@@ -44,13 +44,17 @@ export interface CapacitySettings {
     available_tables: TableSetting[];
 }
 
+export interface ReservationSettingTimeSlotRange {
+    start_time: string;
+    end_time: string;
+}
+
 export interface ReservationSetting {
     id: string;
     business_id: string;
     day_of_week: number;
     timeslot_length_minutes: number;
-    reservation_start_time: string;
-    reservation_end_time: string;
+    available_reservation_time_slots: ReservationSettingTimeSlotRange[];
     capacity_settings: CapacitySettings;
     is_default: boolean;
     specific_date?: Date | null;
