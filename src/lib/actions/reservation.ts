@@ -444,8 +444,8 @@ export async function updateReservation(
         data.timeSlotLengthMinutes,
         data.restaurantTimezone
     );
-    const startTime24HrString = `${startTimeHours}:${startTimeMinutes}`;
-    const endTime24HrString = `${endTimeHours}:${endTimeMinutes}`;
+    const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
+    const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
 
     const dateStringInRestaurantTz = data.date.toLocaleString('en-US', {
         timeZone: data.restaurantTimezone,

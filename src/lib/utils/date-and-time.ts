@@ -41,8 +41,16 @@ export function calculateReservationTimes(
         0,
         timezone
     );
+    const endDateTime = new TZDate(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        hour24,
+        parseInt(minutes),
+        0,
+        timezone
+    );
 
-    const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(startDateTime.getMinutes() + timeSlotLengthMinutes);
 
     // console.log(`startDateTime.getHours: ${startDateTime.getHours()}`);
@@ -50,16 +58,11 @@ export function calculateReservationTimes(
     // console.log(`endDateTime.getHours: ${endDateTime.getHours()}`);
     // console.log(`endDateTime.getMinutes: ${endDateTime.getMinutes()}`);
 
-    const startTimeHours = String(startDateTime.getHours());
-    const startTimeMinutes = String(startDateTime.getMinutes());
-    const endTimeHours = String(endDateTime.getHours());
-    const endTimeMinutes = String(endDateTime.getMinutes());
-
     return {
-        startTimeHours,
-        startTimeMinutes,
-        endTimeHours,
-        endTimeMinutes
+        startTimeHours: String(startDateTime.getHours()).padStart(2, '0'),
+        startTimeMinutes: String(startDateTime.getMinutes()).padStart(2, '0'),
+        endTimeHours: String(endDateTime.getHours()).padStart(2, '0'),
+        endTimeMinutes: String(endDateTime.getMinutes()).padStart(2, '0')
     }
 }
 
