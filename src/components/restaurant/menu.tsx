@@ -37,6 +37,8 @@ export default function Menu({ products }: MenuProps) {
                       src={product.image_urls[0]}
                       alt={product.name}
                       fill
+                      unoptimized
+                      priority
                       className="object-cover transition-transform group-hover:scale-105"
                     />
                   </div>

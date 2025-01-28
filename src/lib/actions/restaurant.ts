@@ -1,10 +1,6 @@
 // src/lib/services/restaurant.ts
 import { prisma } from '@/lib/prisma';
-<<<<<<< Updated upstream
-import type { BusinessProfile, CapacitySettings, OperatingHours, ReservationSetting, ReservationSettingTimeSlotRange } from '@/types';
-=======
-import type { BusinessProfile, CapacitySettings, OperatingHours, Product } from '@/types';
->>>>>>> Stashed changes
+import type { BusinessProfile, CapacitySettings, OperatingHours, ReservationSetting, ReservationSettingTimeSlotRange, Product } from '@/types';
 
 export async function getRestaurant(slug: string): Promise<BusinessProfile | null> {
     const restaurant = await prisma.business_profiles.findUnique({
@@ -24,13 +20,8 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
 
     if (!restaurant) return null;
 
-<<<<<<< Updated upstream
-    // Transform reservation settings to ensure proper typing of capacity_settings and available_reservation_time_slots
-    const transformedReservationSettings = restaurant.reservation_settings.map(setting => ({
-=======
     // Transform reservation settings to ensure proper typing of capacity_settings
     const transformedReservationSettings = restaurant.reservation_settings.map((setting: any) => ({
->>>>>>> Stashed changes
         ...setting,
         capacity_settings: setting.capacity_settings as unknown as CapacitySettings,
         available_reservation_time_slots: (setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[]) || []
@@ -38,10 +29,6 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
 
     return {
         ...restaurant,
-<<<<<<< Updated upstream
-        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) * 100 : null,
-        reservation_settings: transformedReservationSettings as ReservationSetting[]
-=======
         deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount) : null,
         reservation_settings: transformedReservationSettings,
         products: restaurant.products.map(product => ({
@@ -51,7 +38,6 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
             created_at: product.created_at.toISOString(),
             updated_at: product.updated_at.toISOString()
         }))
->>>>>>> Stashed changes
     };
 }
 

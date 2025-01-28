@@ -7,7 +7,8 @@ export default async function MenuPage({
 }: {
     params: { slug: string }
 }) {
-    const restaurant = await getRestaurant(params.slug);
+    const { slug } = await params;
+    const restaurant = await getRestaurant(slug);
 
     if (!restaurant) {
         notFound();
