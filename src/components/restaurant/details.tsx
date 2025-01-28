@@ -11,7 +11,7 @@ export default function RestaurantDetails({
     products
 }: {
     restaurant: BusinessProfile;
-    products: Product[];
+    products?: Product[];
 }) {
     const operatingHours = restaurant.operating_hours as OperatingHours;
 

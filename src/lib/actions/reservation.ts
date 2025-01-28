@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { Reservation, ReservationForTimeSlotGen, ReservationSettingTimeSlotRange, TableSetting } from '@/types';
+import { CapacitySettings, Reservation, ReservationForTimeSlotGen, ReservationSetting, ReservationSettingTimeSlotRange, TableSetting } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
@@ -152,7 +152,8 @@ export async function getReservationByCode(confirmationCode: string) {
             include: {
                 business_profiles: {
                     include: {
-                        reservation_settings: true
+                        reservation_settings: true,
+                        products: true  // Add this to include products
                     }
                 }
             },
@@ -161,35 +162,45 @@ export async function getReservationByCode(confirmationCode: string) {
         if (reservation) {
             const { business_profiles, ...rest } = reservation;
 
-            const transformedReservationSettings = business_profiles.reservation_settings.map(setting => {
-                // Parse the JSON value and validate its structure
-                const parsedCapacitySettings = (setting.capacity_settings as unknown) as { available_tables: TableSetting[] };
-                const parsedTimeSlots = (setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[]) || [];
-
-                // Ensure the parsed data has the correct structure
-                if (!parsedCapacitySettings || !Array.isArray(parsedCapacitySettings.available_tables)) {
-                    throw new Error('Invalid capacity settings format');
-                }
+            // Transform reservation settings
+            const transformedReservationSettings = business_profiles.reservation_settings.map((setting) => {
+                const parsedCapacitySettings = setting.capacity_settings as unknown as CapacitySettings;
+                const parsedTimeSlots = setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[];
 
                 return {
-                    ...setting,
-                    available_reservation_time_slots: parsedTimeSlots,
-                    capacity_settings: {
-                        available_tables: parsedCapacitySettings.available_tables
-                    }
-                };
+                    id: setting.id,
+                    business_id: setting.business_id,
+                    day_of_week: setting.day_of_week,
+                    timeslot_length_minutes: setting.timeslot_length_minutes,
+                    capacity_settings: parsedCapacitySettings,
+                    is_default: setting.is_default,
+                    specific_date: setting.specific_date,
+                    available_reservation_time_slots: parsedTimeSlots || []
+                } as ReservationSetting;
             });
+
+            // Transform products
+            const transformedProducts = business_profiles.products.map(product => ({
+                ...product,
+                price: Number(product.price),
+                discount: product.discount ? Number(product.discount) : null
+            }));
+
+            // Create the transformed reservation
+            const transformedReservation = {
+                ...rest,
+                business: {
+                    ...business_profiles,
+                    deposit_amount: business_profiles.deposit_amount ? 
+                        Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
+                    reservation_settings: transformedReservationSettings,
+                    products: transformedProducts
+                }
+            } as unknown as Reservation;
 
             return {
                 success: true,
-                reservation: {
-                    ...rest,
-                    business: {
-                        ...business_profiles,
-                        deposit_amount: business_profiles.deposit_amount ? Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
-                        reservation_settings: transformedReservationSettings
-                    }
-                } as Reservation
+                reservation: transformedReservation
             };
         }
 
@@ -199,6 +210,7 @@ export async function getReservationByCode(confirmationCode: string) {
         return { success: false, error: 'Failed to fetch reservation' };
     }
 }
+
 
 export async function getReservations(
     restaurantId: string, startDate: Date, endDate: Date, restaurantTimezone: string

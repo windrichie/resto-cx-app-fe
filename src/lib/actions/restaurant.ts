@@ -1,6 +1,39 @@
-// src/lib/services/restaurant.ts
 import { prisma } from '@/lib/prisma';
 import type { BusinessProfile, CapacitySettings, OperatingHours, ReservationSetting, ReservationSettingTimeSlotRange, Product } from '@/types';
+import { Prisma } from '@prisma/client';
+
+// Define types for Prisma models
+type PrismaReservationSetting = Prisma.reservation_settingsGetPayload<{
+  select: {
+    id: true;
+    business_id: true;
+    day_of_week: true;
+    timeslot_length_minutes: true;
+    capacity_settings: true;
+    is_default: true;
+    specific_date: true;
+    available_reservation_time_slots: true;
+  }
+}>;
+
+type PrismaProduct = Prisma.productsGetPayload<{
+  select: {
+    id: true;
+    business_id: true;
+    name: true;
+    description: true;
+    price: true;
+    image_urls: true;
+    is_active: true;
+    category: true;
+    stock_quantity: true;
+    discount: true;
+    rating: true;
+    tags: true;
+    created_at: true;
+    updated_at: true;
+  }
+}>;
 
 export async function getRestaurant(slug: string): Promise<BusinessProfile | null> {
     const restaurant = await prisma.business_profiles.findUnique({
@@ -20,18 +53,23 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
 
     if (!restaurant) return null;
 
-    // Transform reservation settings to ensure proper typing of capacity_settings
-    const transformedReservationSettings = restaurant.reservation_settings.map((setting: any) => ({
-        ...setting,
+    // Transform reservation settings with proper typing
+    const transformedReservationSettings = restaurant.reservation_settings.map((setting: PrismaReservationSetting) => ({
+        id: setting.id,
+        business_id: setting.business_id,
+        day_of_week: setting.day_of_week,
+        timeslot_length_minutes: setting.timeslot_length_minutes,
         capacity_settings: setting.capacity_settings as unknown as CapacitySettings,
+        is_default: setting.is_default,
+        specific_date: setting.specific_date,
         available_reservation_time_slots: (setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[]) || []
-    }));
+    })) as ReservationSetting[];
 
     return {
         ...restaurant,
         deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount) : null,
         reservation_settings: transformedReservationSettings,
-        products: restaurant.products.map(product => ({
+        products: restaurant.products.map((product: PrismaProduct) => ({
             ...product,
             price: Number(product.price),
             discount: product.discount ? Number(product.discount) : null,
@@ -86,7 +124,7 @@ export async function getRestaurantProducts(businessId: string): Promise<Product
         }
     });
 
-    return products.map((product: any) => ({
+    return products.map((product: PrismaProduct) => ({
         ...product,
         price: Number(product.price),
         discount: product.discount ? Number(product.discount) : null

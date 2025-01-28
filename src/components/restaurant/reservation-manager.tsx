@@ -99,7 +99,9 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
             <div className="grid md:grid-cols-2 gap-36">
                 {/* Left Column */}
                 <div>
-                    <RestaurantDetails restaurant={reservation.business} />
+                    <RestaurantDetails restaurant={reservation.business} 
+                    products={reservation.business.products}
+                    />
                 </div>
 
                 {/* Right Column */}

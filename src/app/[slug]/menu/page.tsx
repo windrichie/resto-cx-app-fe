@@ -5,7 +5,7 @@ import Menu from '@/components/restaurant/menu';
 export default async function MenuPage({
     params
 }: {
-    params: { slug: string }
+    params: Promise<{ slug: string }>
 }) {
     const { slug } = await params;
     const restaurant = await getRestaurant(slug);
