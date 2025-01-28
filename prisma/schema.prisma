@@ -69,16 +69,17 @@ model products {
 }
 
 model reservation_settings {
-  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  business_id             String            @db.Uuid
-  day_of_week             Int
-  reservation_start_time  String
-  reservation_end_time    String
-  capacity_settings       Json
-  specific_date           DateTime?         @db.Date
-  is_default              Boolean
-  timeslot_length_minutes Int
-  business_profiles       business_profiles @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservation_settings_business_id")
+  id                               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id                      String            @db.Uuid
+  day_of_week                      Int
+  reservation_start_time           String
+  reservation_end_time             String
+  capacity_settings                Json
+  specific_date                    DateTime?         @db.Date
+  is_default                       Boolean
+  timeslot_length_minutes          Int
+  available_reservation_time_slots Json[]
+  business_profiles                business_profiles @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservation_settings_business_id")
 
   @@index([business_id], map: "idx_reservation_settings_business_id")
 }
