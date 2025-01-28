@@ -1,14 +1,17 @@
 import Image from 'next/image';
-import type { BusinessProfile } from '@/types/index';
+import type { BusinessProfile, Product } from '@/types/index';
 import { sortOperatingHours } from '@/lib/actions/restaurant';
 import { Globe, MapPin, Phone } from 'lucide-react';
 import { OperatingHours } from '@/types/index';
+import Link from 'next/link';
 
 
 export default function RestaurantDetails({
-    restaurant
+    restaurant,
+    products
 }: {
     restaurant: BusinessProfile;
+    products: Product[];
 }) {
     const operatingHours = restaurant.operating_hours as OperatingHours;
 
@@ -62,6 +65,24 @@ export default function RestaurantDetails({
                         </a>
                     </div>
                 )}
+
+                <div className="flex items-center gap-2 text-gray-600">
+                    <svg 
+                        className="h-5 w-5 flex-shrink-0" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                    >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                    </svg>
+                    <Link
+                        href={`/${restaurant.slug}/menu`}
+                        className="hover:text-blue-600 transition-colors"
+                    >
+                        Menu
+                    </Link>
+                </div>
             </div>
 
             <p className="mb-6">{restaurant.description}</p>

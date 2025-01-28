@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getRestaurant } from '@/lib/actions/restaurant';
+import { getRestaurant, getRestaurantProducts } from '@/lib/actions/restaurant';
 import RestaurantDetails from '@/components/restaurant/details';
 import DatePicker from '@/components/restaurant/date-picker';
 
@@ -31,11 +31,16 @@ export default async function RestaurantPage({
         notFound();
     }
 
+    const products = await getRestaurantProducts(restaurant.id);
+
     return (
         <main className="container mx-auto px-4 py-8 max-w-5xl">
             <h1 className="text-4xl font-bold mb-8">{restaurant.name}</h1>
             <div className="grid md:grid-cols-2 gap-40">
-                <RestaurantDetails restaurant={restaurant} />
+                <RestaurantDetails 
+                    restaurant={restaurant}
+                    products={products}
+                />
                 <div>
                     <DatePicker
                         operatingHours={restaurant.operating_hours as Record<string, string>}

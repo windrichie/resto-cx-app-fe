@@ -31,6 +31,7 @@ export interface BusinessProfile {
     phone: string | null;
     website: string | null;
     reservation_settings: ReservationSetting[];
+    products: Product[];
 }
 
 export interface TableSetting {
@@ -123,3 +124,18 @@ type DaySchedule = {
 };
 
 export type OperatingHours = Record<string, DaySchedule>;
+
+export interface Product {
+    id: string;
+    business_id: string;
+    name: string;
+    description: string | null;
+    price: number;
+    image_urls: string[] | null;
+    is_active: boolean;
+    category: string;
+    stock_quantity: number | null;
+    discount: number | null;
+    rating: number | null;
+    tags: JsonValue | null;
+  }
