@@ -217,15 +217,14 @@ export default function DatePicker({
       {timeSlots.length > 0 ? (
         <div>
           <Label>Available Time Slots</Label>
-          <div className="grid grid-cols-3 gap-2 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
             {timeSlots.map((slot) => (
               <Button
                 key={slot.start}
                 variant={selectedSlot?.start === slot.start ? "default" : "outline"}
                 onClick={() => setSelectedSlot(slot)}
                 disabled={!slot.available}
-                size="sm"
-                className="text-sm"
+                className="h-10 w-full px-4 text-sm font-normal"
               >
                 {`${slot.start} - ${slot.end}`}
               </Button>
