@@ -67,7 +67,7 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
 
     return {
         ...restaurant,
-        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount) : null,
+        deposit_amount: restaurant.deposit_amount ? Number(restaurant.deposit_amount.toFixed(2)) * 100 : null,
         reservation_settings: transformedReservationSettings,
         products: restaurant.products.map((product: PrismaProduct) => ({
             ...product,
