@@ -12,52 +12,6 @@ import { getBaseUrl } from '../utils/common';
 import { generateConfirmationCode } from '../utils/reservation';
 import { Prisma, reservation_status } from '@prisma/client';
 
-const CreateReservationSchema = z.object({
-    restaurantId: z.string(),
-    customerName: z.string().min(1, 'Name is required'),
-    customerEmail: z.string().email('Invalid email address'),
-    customerPhone: z.string().min(8, 'Invalid phone number'),
-    partySize: z.number().min(1),
-    date: z.date(),
-    timeSlotLengthMinutes: z.number(),
-    timeSlotStart: z.string(),
-    dietaryRestrictions: z.string().optional(),
-    otherDietaryRestrictions: z.string().optional(),
-    specialOccasion: z.string().optional(),
-    otherSpecialOccasion: z.string().optional(),
-    specialRequests: z.string().optional(),
-    restaurantTimezone: z.string(),
-    restaurantName: z.string(),
-    restaurantAddress: z.string(),
-    restaurantImages: z.array(z.string()),
-    paymentIntentId: z.string()
-});
-
-const ReservationSettingSchema = z.object({
-    id: z.string(),
-    business_id: z.string(),
-    day_of_week: z.number().min(0).max(6),
-    reservation_start_time: z.date(),
-    reservation_end_time: z.date(),
-    capacity_settings: z.record(z.string(), z.number()),
-    specific_date: z.date().nullable(),
-    is_default: z.boolean(),
-    timeslot_length_minutes: z.number().positive()
-});
-
-const UpdateReservationSchema = z.object({
-    confirmationCode: z.string().min(1, 'Confirmation code is required'),
-    partySize: z.number().min(1, 'Party size must be at least 1'),
-    date: z.date(),
-    timeSlotStart: z.string().min(1, 'Time slot is required'),
-    timeSlotLengthMinutes: z.number().min(1, 'Time slot length is required'),
-    restaurantTimezone: z.string().min(1, 'Timezone is required'),
-    restaurantName: z.string(),
-    restaurantAddress: z.string(),
-    customerName: z.string(),
-    customerEmail: z.string(),
-    restaurantImages: z.array(z.string())
-});
 
 type ReservationUpdateData = {
     party_size: number;
@@ -191,7 +145,7 @@ export async function getReservationByCode(confirmationCode: string) {
                 ...rest,
                 business: {
                     ...business_profiles,
-                    deposit_amount: business_profiles.deposit_amount ? 
+                    deposit_amount: business_profiles.deposit_amount ?
                         Number(business_profiles.deposit_amount.toFixed(2)) * 100 : null,
                     reservation_settings: transformedReservationSettings,
                     products: transformedProducts
@@ -257,35 +211,26 @@ export async function getReservations(
 
 export async function createReservation(prevState: State, formData: FormData): Promise<State> {
     console.log('createReservation formData: ', formData);
-    const validatedFields = CreateReservationSchema.safeParse({
-        restaurantId: formData.get('restaurantId'),
-        customerName: formData.get('customerName'),
-        customerEmail: formData.get('customerEmail'),
-        customerPhone: formData.get('customerPhone'),
+    const data = {
+        restaurantId: formData.get('restaurantId') as string,
+        customerName: formData.get('customerName') as string,
+        customerEmail: formData.get('customerEmail') as string,
+        customerPhone: formData.get('customerPhone') as string,
         partySize: parseInt(formData.get('partySize') as string),
         date: new Date(formData.get('date') as string),
         timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
-        timeSlotStart: formData.get('timeSlotStart'),
-        dietaryRestrictions: formData.get('dietaryRestrictions'),
-        otherDietaryRestrictions: formData.get('otherDietaryRestrictions'),
-        specialOccasion: formData.get('specialOccasion'),
-        otherSpecialOccasion: formData.get('otherSpecialOccasion'),
-        specialRequests: formData.get('specialRequests'),
-        restaurantTimezone: formData.get('restaurantTimezone'),
-        restaurantName: formData.get('restaurantName'),
-        restaurantAddress: formData.get('restaurantAddress'),
+        timeSlotStart: formData.get('timeSlotStart') as string,
+        dietaryRestrictions: formData.get('dietaryRestrictions') as string,
+        otherDietaryRestrictions: formData.get('otherDietaryRestrictions') as string,
+        specialOccasion: formData.get('specialOccasion') as string,
+        otherSpecialOccasion: formData.get('otherSpecialOccasion') as string,
+        specialRequests: formData.get('specialRequests') as string,
+        restaurantTimezone: formData.get('restaurantTimezone') as string,
+        restaurantName: formData.get('restaurantName') as string,
+        restaurantAddress: formData.get('restaurantAddress') as string,
         restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
-        paymentIntentId: formData.get('paymentIntentId')
-    });
-
-    if (!validatedFields.success) {
-        console.error(validatedFields.error.flatten());
-        return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: 'Missing Fields. Failed to Create Reservation.',
-        } as State;
-    }
-    const data = validatedFields.data;
+        paymentIntentId: formData.get('paymentIntentId') as string || null
+    };
     console.log('Data being passed to Prisma:', data);
 
     // retrieve the first image for use in email as thumbnail
@@ -339,7 +284,7 @@ export async function createReservation(prevState: State, formData: FormData): P
                     special_requests: data.specialRequests,
                     confirmation_code: confirmationCode,
                     status: reservation_status.new,
-                    deposit_payment_intent_id: data.paymentIntentId
+                    ...(data.paymentIntentId && { deposit_payment_intent_id: data.paymentIntentId })
                 },
             });
 
@@ -425,29 +370,19 @@ export async function updateReservation(
 ): Promise<State> {
     console.log('updateReservation formData: ', formData);
 
-    const validatedFields = UpdateReservationSchema.safeParse({
-        confirmationCode: formData.get('confirmationCode'),
+    const data = {
+        confirmationCode: formData.get('confirmationCode') as string,
         partySize: parseInt(formData.get('partySize') as string),
         date: new Date(formData.get('date') as string),
-        timeSlotStart: formData.get('timeSlotStart'),
+        timeSlotStart: formData.get('timeSlotStart') as string,
         timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
-        restaurantTimezone: formData.get('restaurantTimezone'),
-        restaurantName: formData.get('restaurantName'),
-        restaurantAddress: formData.get('restaurantAddress'),
-        customerEmail: formData.get('customerEmail'),
-        customerName: formData.get('customerName'),
+        restaurantTimezone: formData.get('restaurantTimezone') as string,
+        restaurantName: formData.get('restaurantName') as string,
+        restaurantAddress: formData.get('restaurantAddress') as string,
+        customerEmail: formData.get('customerEmail') as string,
+        customerName: formData.get('customerName') as string,
         restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
-    });
-
-    if (!validatedFields.success) {
-        console.error(validatedFields.error.flatten());
-        return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: 'Invalid fields. Failed to update reservation.',
-        } as State;
-    }
-
-    const data = validatedFields.data;
+    };
 
     // retrieve the first image for use in email as thumbnail
     const restaurantThumbnail = data.restaurantImages[0] || '';

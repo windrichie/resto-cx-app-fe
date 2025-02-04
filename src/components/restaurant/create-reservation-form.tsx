@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { useRouter } from 'next/navigation';
 import { BusinessProfile } from '@/types';
 import ReservationPaymentForm from './reservation-payment-form';
+import { z } from 'zod';
 
 
 interface ReservationFormProps {
@@ -35,6 +36,27 @@ interface ReservationFormProps {
   restaurant: BusinessProfile;
   timeSlotLengthMinutes: number;
 }
+
+const CreateReservationSchema = z.object({
+  restaurantId: z.string(),
+  customerName: z.string().min(1, 'Name is required'),
+  customerEmail: z.string().email('Invalid email address'),
+  customerPhone: z.string().min(8, 'Invalid phone number'),
+  partySize: z.number().min(1),
+  date: z.date(),
+  timeSlotLengthMinutes: z.number(),
+  timeSlotStart: z.string(),
+  dietaryRestrictions: z.string().optional(),
+  otherDietaryRestrictions: z.string().optional(),
+  specialOccasion: z.string().optional(),
+  otherSpecialOccasion: z.string().optional(),
+  specialRequests: z.string().optional(),
+  restaurantTimezone: z.string(),
+  restaurantName: z.string(),
+  restaurantAddress: z.string(),
+  restaurantImages: z.array(z.string()),
+  paymentIntentId: z.string().nullable().optional()
+});
 
 export default function CreateReservationForm({
   selectedDate, selectedTime, partySize, restaurant, timeSlotLengthMinutes
@@ -48,6 +70,7 @@ export default function CreateReservationForm({
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [formRef, setFormRef] = useState<HTMLFormElement | null>(null);
+  const [formErrors, setFormErrors] = useState<z.inferFormattedError<typeof CreateReservationSchema>>({ _errors: [] });
 
   // Watch for successful/failed submission
   useEffect(() => {
@@ -72,7 +95,16 @@ export default function CreateReservationForm({
     startTransition(() => {
       const formData = new FormData(formRef!);
       formData.append('paymentIntentId', intentId);
-      formAction(formData);
+      if (validateForm(formData)) {
+        formAction(formData);
+      } else {
+        // Show error toast if validation fails
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please check all required fields"
+        });
+      }
     });
   };
 
@@ -84,10 +116,57 @@ export default function CreateReservationForm({
     });
   };
 
+  const validateFormFields = () => {
+    if (!formRef) return false;
+
+    const formData = new FormData(formRef);
+    return validateForm(formData); // Your existing validation function
+  };
+
+  const validateForm = (formData: FormData): boolean => {
+    const validatedFields = CreateReservationSchema.safeParse({
+      restaurantId: formData.get('restaurantId'),
+      customerName: formData.get('customerName'),
+      customerEmail: formData.get('customerEmail'),
+      customerPhone: formData.get('customerPhone'),
+      partySize: parseInt(formData.get('partySize') as string),
+      date: new Date(formData.get('date') as string),
+      timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
+      timeSlotStart: formData.get('timeSlotStart'),
+      dietaryRestrictions: formData.get('dietaryRestrictions'),
+      otherDietaryRestrictions: formData.get('otherDietaryRestrictions'),
+      specialOccasion: formData.get('specialOccasion'),
+      otherSpecialOccasion: formData.get('otherSpecialOccasion'),
+      specialRequests: formData.get('specialRequests'),
+      restaurantTimezone: formData.get('restaurantTimezone'),
+      restaurantName: formData.get('restaurantName'),
+      restaurantAddress: formData.get('restaurantAddress'),
+      restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
+      paymentIntentId: formData.get('paymentIntentId') || null
+    });
+
+    if (!validatedFields.success) {
+      setFormErrors(validatedFields.error.format());
+      return false;
+    }
+
+    setFormErrors({ _errors: [] });
+    return true;
+  };
 
   return (
     <>
-      <form ref={setFormRef} action={formAction} className="space-y-4">
+      <form
+        ref={setFormRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          if (validateForm(formData)) {
+            formAction(formData);
+          }
+        }}
+        className="space-y-4"
+      >
         <input type="hidden" name="restaurantId" value={restaurant.id} />
         <input type="hidden" name="date" value={selectedDate.toISOString()} />
         <input type="hidden" name="timeSlotStart" value={selectedTime} />
@@ -119,12 +198,11 @@ export default function CreateReservationForm({
             aria-describedby="customer-name-error"
           />
           <div id="customer-name-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.customerName &&
-              state.errors.customerName.map((error: string) => (
-                <p className="mt-2 text-sm text-red-500" key={error}>
-                  {error}
-                </p>
-              ))}
+            {formErrors?.customerName?._errors.map((error: string) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -139,12 +217,11 @@ export default function CreateReservationForm({
             aria-describedby="customer-email-error"
           />
           <div id="customer-email-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.customerEmail &&
-              state.errors.customerEmail.map((error: string) => (
-                <p className="mt-2 text-sm text-red-500" key={error}>
-                  {error}
-                </p>
-              ))}
+            {formErrors?.customerEmail?._errors.map((error: string) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -158,12 +235,11 @@ export default function CreateReservationForm({
             aria-describedby="customer-phone-error"
           />
           <div id="customer-phone-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.customerPhone &&
-              state.errors.customerPhone.map((error: string) => (
-                <p className="mt-2 text-sm text-red-500" key={error}>
-                  {error}
-                </p>
-              ))}
+            {formErrors?.customerPhone?._errors.map((error: string) => (
+              <p className="mt-2 text-sm text-red-500" key={error}>
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -255,6 +331,7 @@ export default function CreateReservationForm({
               depositAmountInCents={restaurant.deposit_amount ?? 0}
               depositCurrency={restaurant.deposit_currency ?? 'SGD'} // default to SGD
               restaurantId={restaurant.id}
+              validateBeforePayment={validateFormFields}
             />
           </>
         )}

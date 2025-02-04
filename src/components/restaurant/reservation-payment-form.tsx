@@ -7,20 +7,21 @@ import { Button } from "@/components/ui/button";
 import { createPaymentIntent } from '@/lib/actions/payment';
 import { Loader2 } from 'lucide-react';
 
-interface PaymentFormProps {
+interface ReservationPaymentFormProps {
     onPaymentSuccess: (paymentIntentId: string) => void;
     onPaymentError: (error: string) => void;
     customerEmail: string;
     depositAmountInCents: number;
     depositCurrency: string;
     restaurantId: string;
+    validateBeforePayment: () => boolean;
 }
 
-interface PaymentFormInnerProps extends PaymentFormProps {
+interface PaymentFormInnerProps extends ReservationPaymentFormProps {
     paymentIntentId: string;
 }
 
-function PaymentForm({ onPaymentSuccess, onPaymentError, paymentIntentId }: PaymentFormInnerProps) {
+function PaymentForm({ onPaymentSuccess, onPaymentError, paymentIntentId, validateBeforePayment }: PaymentFormInnerProps) {
     const stripe = useStripe();
     const elements = useElements();
     const [isProcessing, setIsProcessing] = useState(false);
@@ -73,8 +74,9 @@ export default function ReservationPaymentForm({
     customerEmail,
     depositAmountInCents,
     depositCurrency,
-    restaurantId
-}: PaymentFormProps) {
+    restaurantId,
+    validateBeforePayment
+}: ReservationPaymentFormProps) {
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -83,6 +85,12 @@ export default function ReservationPaymentForm({
     const initializePayment = async () => {
         if (!customerEmail) {
             onPaymentError('Please fill in your email first');
+            return;
+        }
+
+        // Add validation check before proceeding
+        if (!validateBeforePayment()) {
+            onPaymentError('Please fill in all required fields correctly');
             return;
         }
 
@@ -134,6 +142,7 @@ export default function ReservationPaymentForm({
                 onPaymentSuccess={onPaymentSuccess}
                 onPaymentError={onPaymentError}
                 paymentIntentId={paymentIntentId}
+                validateBeforePayment={validateBeforePayment}
             />
         </Elements>
     );

@@ -89,6 +89,7 @@ export async function verifyPayment(paymentIntentId: string) {
       return false;
     };
   } catch (error) {
-    throw new Error(`Failed to verify payment: ${error}`);
+    console.error(`Failed to verify payment: ${error}`);
+    return false;
   }
 }
