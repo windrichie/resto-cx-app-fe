@@ -18,6 +18,7 @@ import { Reservation, BusinessProfile } from '@/types';
 import { useRouter } from 'next/navigation';
 import ReservationPaymentForm from '@/components/restaurant/reservation-payment-form';
 import { verifyPayment } from '@/lib/actions/payment';
+import { z } from 'zod';
 
 interface ModifyReservationFormProps {
     selectedDate: Date;
@@ -29,6 +30,21 @@ interface ModifyReservationFormProps {
     timeSlotLengthMinutes: number;
     onModificationComplete?: () => void;
 }
+
+const UpdateReservationSchema = z.object({
+    confirmationCode: z.string().min(1, 'Confirmation code is required'),
+    partySize: z.number().min(1, 'Party size must be at least 1'),
+    date: z.date(),
+    timeSlotStart: z.string().min(1, 'Time slot is required'),
+    timeSlotLengthMinutes: z.number().min(1, 'Time slot length is required'),
+    restaurantTimezone: z.string().min(1, 'Timezone is required'),
+    restaurantName: z.string(),
+    restaurantAddress: z.string(),
+    customerName: z.string(),
+    customerEmail: z.string(),
+    restaurantImages: z.array(z.string())
+});
+
 
 export default function ModifyReservationForm({
     selectedDate,
@@ -54,6 +70,7 @@ export default function ModifyReservationForm({
     const [isPaymentValid, setIsPaymentValid] = useState(false);
     const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
     const [formRef, setFormRef] = useState<HTMLFormElement | null>(null);
+    const [formErrors, setFormErrors] = useState<z.inferFormattedError<typeof UpdateReservationSchema>>({ _errors: [] });
 
     // Watch for successful/failed submission
     useEffect(() => {
@@ -95,7 +112,16 @@ export default function ModifyReservationForm({
         startTransition(() => {
             const formData = new FormData(formRef!);
             formData.append('paymentIntentId', intentId);
-            formAction(formData);
+            if (validateForm(formData)) {
+                formAction(formData);
+            } else {
+                // Show error toast if validation fails
+                toast({
+                    variant: "destructive",
+                    title: "Validation Error",
+                    description: "Please check all required fields"
+                });
+            }
         });
     };
 
@@ -107,9 +133,51 @@ export default function ModifyReservationForm({
         });
     };
 
+    const validateFormFields = () => {
+        if (!formRef) return false;
+
+        const formData = new FormData(formRef);
+        return validateForm(formData); // Your existing validation function
+    };
+
+    const validateForm = (formData: FormData): boolean => {
+        const validatedFields = UpdateReservationSchema.safeParse({
+            confirmationCode: formData.get('confirmationCode'),
+            partySize: parseInt(formData.get('partySize') as string),
+            date: new Date(formData.get('date') as string),
+            timeSlotStart: formData.get('timeSlotStart'),
+            timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
+            restaurantTimezone: formData.get('restaurantTimezone'),
+            restaurantName: formData.get('restaurantName'),
+            restaurantAddress: formData.get('restaurantAddress'),
+            customerEmail: formData.get('customerEmail'),
+            customerName: formData.get('customerName'),
+            restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
+        });
+
+        if (!validatedFields.success) {
+            setFormErrors(validatedFields.error.format());
+            return false;
+        }
+
+        setFormErrors({ _errors: [] });
+        return true;
+    };
+
+
     return (
         <>
-            <form ref={setFormRef} action={formAction} className="space-y-4">
+            <form
+                ref={setFormRef}
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    if (validateForm(formData)) {
+                        formAction(formData);
+                    }
+                }}
+                className="space-y-4"
+            >
                 <input type="hidden" name="confirmationCode" value={confirmationCode} />
                 <input type="hidden" name="restaurantId" value={restaurant.id} />
                 <input type="hidden" name="restaurantName" value={restaurant.name} />
@@ -178,6 +246,7 @@ export default function ModifyReservationForm({
                                     restaurantId={restaurant.id}
                                     onPaymentSuccess={handlePaymentSuccess}
                                     onPaymentError={handlePaymentError}
+                                    validateBeforePayment={validateFormFields}
                                 />
                             </>
                         )}
