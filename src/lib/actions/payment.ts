@@ -57,13 +57,17 @@ export async function createPaymentIntent({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
     };
-  } catch (error: any) {
-    if (error?.code === 'amount_too_small' || error?.message?.includes('Amount must be at least')) {
-      throw new Error(
-        'The deposit amount is too low for our payment processor to handle. ' +
-        'Please contact the restaurant directly to make your reservation.'
-      );
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      if (error.code === 'amount_too_small' || error.message.includes('Amount must be at least')) {
+        throw new Error(
+          'The deposit amount is too low for our payment processor to handle. ' +
+          'Please contact the restaurant directly to make your reservation.'
+        );
+      }
+      throw new Error(`Failed to make card authorization hold. Please contact restaurant directly to continue with the reservation. Error: ${error.message}`);
     }
+    // non-Stripe errors
     throw new Error(`Failed to make card authorization hold. Please contact restaurant directly to continue with the reservation. Error: ${error}`);
   }
 }
