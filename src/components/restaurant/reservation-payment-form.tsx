@@ -106,7 +106,11 @@ export default function ReservationPaymentForm({
             setClientSecret(clientSecret);
             setPaymentIntentId(paymentIntentId);
         } catch (error) {
-            onPaymentError('Failed to initialize payment');
+            if (error instanceof Error) {
+                onPaymentError(error.message);
+            } else {
+                onPaymentError('Failed to initialize payment');
+            }
         } finally {
             setIsLoading(false);
         }
