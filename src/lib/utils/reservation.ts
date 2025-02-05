@@ -212,9 +212,13 @@ export function generateTimeSlots(
             // Slot is available if there are fewer reservations than tables
             const isAvailable = overlappingReservations.length < tableCount;
 
+            // Convert time to restaurant's local timezone
+            const currSlotStartTimeInRestaurantTz = convertToLocalTime(currSlotStartTime, restaurantTimeZone);
+            const currSlotEndTimeInRestaurantTz = convertToLocalTime(currSlotEndTime, restaurantTimeZone);
+
             allSlots.push({
-                start: format(currSlotStartTime, 'h:mm aa'),
-                end: format(currSlotEndTime, 'h:mm aa'),
+                start: format(currSlotStartTimeInRestaurantTz, 'h:mm aa'),
+                end: format(currSlotEndTimeInRestaurantTz, 'h:mm aa'),
                 available: isAvailable
             });
 

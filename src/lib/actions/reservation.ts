@@ -217,7 +217,9 @@ export async function createReservation(prevState: State, formData: FormData): P
         customerEmail: formData.get('customerEmail') as string,
         customerPhone: formData.get('customerPhone') as string,
         partySize: parseInt(formData.get('partySize') as string),
-        date: new Date(formData.get('date') as string),
+        selectedDate: formData.get('selectedDate') as string,
+        selectedMonth: formData.get('selectedMonth') as string,
+        selectedYear: formData.get('selectedYear') as string,
         timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
         timeSlotStart: formData.get('timeSlotStart') as string,
         dietaryRestrictions: formData.get('dietaryRestrictions') as string,
@@ -233,26 +235,23 @@ export async function createReservation(prevState: State, formData: FormData): P
     };
     console.log('Data being passed to Prisma:', data);
 
+    // construct selected date as Date object in UTC
+    const selectedDate = new Date(Date.UTC(parseInt(data.selectedYear), parseInt(data.selectedMonth), parseInt(data.selectedDate)));
+    const selectedDateStr = format(selectedDate, 'PPP'); // for email
+
     // retrieve the first image for use in email as thumbnail
     const restaurantThumbnail = data.restaurantImages[0] || '';
     // get customer ID
     const customerId = await getOrCreateUserId(data.customerEmail, data.customerName, data.customerPhone);
 
     const { startTimeHours, startTimeMinutes, endTimeHours, endTimeMinutes } = calculateReservationTimes(
-        data.date,
+        selectedDate,
         data.timeSlotStart,
         data.timeSlotLengthMinutes,
         data.restaurantTimezone
     );
     const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
-
-    const dateStringInRestaurantTz = data.date.toLocaleString('en-US', {
-        timeZone: data.restaurantTimezone,
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-    });
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
 
@@ -272,7 +271,7 @@ export async function createReservation(prevState: State, formData: FormData): P
                     customer_email: data.customerEmail,
                     customer_phone: data.customerPhone,
                     party_size: data.partySize,
-                    date: data.date,
+                    date: selectedDate,
                     timeslot_start: startTime24HrString,
                     timeslot_end: endTime24HrString,
                     dietary_restrictions: data.dietaryRestrictions === 'other'
@@ -306,7 +305,7 @@ export async function createReservation(prevState: State, formData: FormData): P
                         to: data.customerEmail,
                         customerName: data.customerName,
                         restaurantName: data.restaurantName,
-                        date: dateStringInRestaurantTz,
+                        date: selectedDateStr,
                         time: startTime12HrString,
                         guests: data.partySize,
                         address: data.restaurantAddress,
@@ -373,7 +372,9 @@ export async function updateReservation(
     const data = {
         confirmationCode: formData.get('confirmationCode') as string,
         partySize: parseInt(formData.get('partySize') as string),
-        date: new Date(formData.get('date') as string),
+        selectedDate: formData.get('selectedDate') as string,
+        selectedMonth: formData.get('selectedMonth') as string,
+        selectedYear: formData.get('selectedYear') as string,
         timeSlotStart: formData.get('timeSlotStart') as string,
         timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
         restaurantTimezone: formData.get('restaurantTimezone') as string,
@@ -384,25 +385,21 @@ export async function updateReservation(
         restaurantImages: JSON.parse(formData.get('restaurantImages') as string || '[]'),
     };
 
+    // construct selected date as Date object in UTC
+    const selectedDate = new Date(Date.UTC(parseInt(data.selectedYear), parseInt(data.selectedMonth), parseInt(data.selectedDate)));
+    const selectedDateStr = format(selectedDate, 'PPP'); // for email
+
     // retrieve the first image for use in email as thumbnail
     const restaurantThumbnail = data.restaurantImages[0] || '';
 
     const { startTimeHours, startTimeMinutes, endTimeHours, endTimeMinutes } = calculateReservationTimes(
-        data.date,
+        selectedDate,
         data.timeSlotStart,
         data.timeSlotLengthMinutes,
         data.restaurantTimezone
     );
     const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
-
-    const dateStringInRestaurantTz = data.date.toLocaleString('en-US', {
-        timeZone: data.restaurantTimezone,
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-    });
-
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
     try {
@@ -413,7 +410,7 @@ export async function updateReservation(
         // Prepare update data
         const updateData: ReservationUpdateData = {
             party_size: data.partySize,
-            date: data.date,
+            date: selectedDate,
             timeslot_start: startTime24HrString,
             timeslot_end: endTime24HrString,
             status: reservation_status.new,
@@ -451,7 +448,7 @@ export async function updateReservation(
                     to: data.customerEmail,
                     customerName: data.customerName,
                     restaurantName: data.restaurantName,
-                    date: dateStringInRestaurantTz,
+                    date: selectedDateStr,
                     time: startTime12HrString,
                     guests: data.partySize,
                     address: data.restaurantAddress,
