@@ -93,13 +93,13 @@ export async function verifyPayment(paymentIntentId: string) {
     const paymentIntent = await stripe.paymentIntents.retrieve(
       paymentIntentId
     );
-    if (paymentIntent.status !== 'canceled' && paymentIntent.status !== 'succeeded') {
-      return true;
-    } else {
-      return false;
-    };
+    const isValid = paymentIntent.status !== 'canceled' && paymentIntent.status !== 'succeeded';
+    const amount = paymentIntent.amount;
+    const currency = paymentIntent.currency;
+
+    return { isValid, amount, currency };
   } catch (error) {
     console.error(`Failed to verify payment: ${error}`);
-    return false;
+    return { isValid: false, amount: 0, currency: '' };
   }
 }

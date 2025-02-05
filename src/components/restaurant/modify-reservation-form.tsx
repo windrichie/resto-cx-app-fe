@@ -68,6 +68,8 @@ export default function ModifyReservationForm({
     const [showErrorDialog, setShowErrorDialog] = useState(false);
     const [isCheckingPayment, setIsCheckingPayment] = useState(true);
     const [isPaymentValid, setIsPaymentValid] = useState(false);
+    const [existingDepositAmount, setExistingDepositAmount] = useState<number>(0);
+    const [existingDepositCurrency, setExistingDepositCurrency] = useState<string>('');
     const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
     const [formRef, setFormRef] = useState<HTMLFormElement | null>(null);
     const [formErrors, setFormErrors] = useState<z.inferFormattedError<typeof UpdateReservationSchema>>({ _errors: [] });
@@ -94,12 +96,10 @@ export default function ModifyReservationForm({
     useEffect(() => {
         async function checkPayment() {
             if (restaurant.is_deposit_required && reservation.deposit_payment_intent_id) {
-                const isPaymentValid = await verifyPayment(reservation.deposit_payment_intent_id);
-                if (isPaymentValid) {
-                    setIsPaymentValid(true);
-                } else {
-                    setIsPaymentValid(false);
-                }
+                const verifyPaymentResponse = await verifyPayment(reservation.deposit_payment_intent_id);
+                setIsPaymentValid(verifyPaymentResponse.isValid);
+                setExistingDepositAmount(verifyPaymentResponse.amount);
+                setExistingDepositCurrency(verifyPaymentResponse.currency.toUpperCase());
             }
             setIsCheckingPayment(false);
         }
@@ -221,7 +221,7 @@ export default function ModifyReservationForm({
                             <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg mb-4">
                                 <p className="text-black font-bold text-lg mb-2">Card Authorization Active</p>
                                 <p className="text-green-700">
-                                    Your card is already authorized for <span className="font-semibold py-1 rounded">SGD 100.00</span>.
+                                    Your card is already authorized for <span className="font-semibold py-1 rounded">{existingDepositCurrency} {(existingDepositAmount / 100).toFixed(2)}</span>.
                                     This amount will only be charged if you do not show up for your reservation.
                                 </p>
                             </div>
