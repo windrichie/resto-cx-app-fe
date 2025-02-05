@@ -162,13 +162,18 @@ export default function CreateReservationForm({
           e.preventDefault();
           const formData = new FormData(e.currentTarget);
           if (validateForm(formData)) {
-            formAction(formData);
+            startTransition(() => {
+              formAction(formData);
+            });
           }
         }}
         className="space-y-4"
       >
         <input type="hidden" name="restaurantId" value={restaurant.id} />
         <input type="hidden" name="date" value={selectedDate.toISOString()} />
+        <input type="hidden" name="selectedDate" value={selectedDate.getDate()} />
+        <input type="hidden" name="selectedMonth" value={selectedDate.getMonth()} />
+        <input type="hidden" name="selectedYear" value={selectedDate.getFullYear()} />
         <input type="hidden" name="timeSlotStart" value={selectedTime} />
         <input type="hidden" name="partySize" value={partySize} />
         <input type="hidden" name="timeSlotLengthMinutes" value={timeSlotLengthMinutes} />
