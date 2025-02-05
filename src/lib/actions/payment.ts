@@ -57,7 +57,13 @@ export async function createPaymentIntent({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'amount_too_small' || error?.message?.includes('Amount must be at least')) {
+      throw new Error(
+        'The deposit amount is too low for our payment processor to handle. ' +
+        'Please contact the restaurant directly to make your reservation.'
+      );
+    }
     throw new Error(`Failed to create payment intent: ${error}`);
   }
 }
