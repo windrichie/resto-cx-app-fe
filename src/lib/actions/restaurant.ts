@@ -79,7 +79,7 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
     };
 }
 
-export async function getAllRestaurants() {
+export async function getAllActiveRestaurants() {
     const restaurants = await prisma.business_profiles.findMany({
         where: {
             is_active: true,

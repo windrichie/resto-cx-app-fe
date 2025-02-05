@@ -1,21 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getAllActiveRestaurants } from '@/lib/actions/restaurant';
 
 export default async function HomePage() {
-  const restaurants = await prisma.business_profiles.findMany({
-    where: {
-      is_active: true,
-    },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      cuisine: true,
-      description: true,
-      images: true,
-    },
-  });
+  const restaurants = await getAllActiveRestaurants();
 
   return (
     <main className="container mx-auto px-4 py-8">
