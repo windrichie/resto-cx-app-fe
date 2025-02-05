@@ -64,7 +64,7 @@ export async function createPaymentIntent({
         'Please contact the restaurant directly to make your reservation.'
       );
     }
-    throw new Error(`Failed to create payment intent: ${error}`);
+    throw new Error(`Failed to make card authorization hold. Please contact restaurant directly to continue with the reservation. Error: ${error}`);
   }
 }
 
