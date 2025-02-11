@@ -25,8 +25,12 @@ interface TableSettings {
 }
 interface TableCapacityResult {
     success: boolean;
-    capacity?: number;
-    quantity?: number;
+    optimalTableSize?: number;
+    numTables?: number;
+    suitableTables?: {
+        capacity: number;
+        quantity: number;
+    }[];
     error?: {
         code: 'NO_TABLES' | 'NO_SUITABLE_TABLE';
         message: string;
@@ -37,7 +41,8 @@ interface TableCapacityResult {
 
 export function determineTableCapacity(
     partySize: number,
-    tableSettings: TableSettings
+    tableSettings: TableSettings,
+    capacityThreshold: number = 0 // Default threshold of 1 seat difference
 ): TableCapacityResult {
     // Guard clause for empty or invalid table settings
     if (!tableSettings?.available_tables?.length) {
@@ -54,13 +59,13 @@ export function determineTableCapacity(
     const sortedTables = [...tableSettings.available_tables]
         .sort((a, b) => a.tableCapacity - b.tableCapacity);
 
-    // Find the first table that can accommodate the party size
-    const suitableTable = sortedTables.find(
+    // Find the optimal capacity that can accommodate the party size
+    const optimalTable = sortedTables.find(
         table => table.tableCapacity >= partySize
     );
 
     // If no suitable table found, return error with helpful information
-    if (!suitableTable) {
+    if (!optimalTable) {
         const maxCapacity = Math.max(...sortedTables.map(t => t.tableCapacity));
         return {
             success: false,
@@ -73,11 +78,26 @@ export function determineTableCapacity(
         };
     }
 
+    // Find all tables within the threshold of the optimal capacity
+    const suitableTables = sortedTables.filter(table =>
+        table.tableCapacity >= partySize &&
+        table.tableCapacity <= optimalTable.tableCapacity + capacityThreshold
+    );
+
+    console.log('suitableTables: ', suitableTables)
+
+    // Calculate total quantity of suitable tables
+    const totalQuantity = suitableTables.reduce((sum, table) => sum + table.quantity, 0);
+
     // Return successful result with table details
     return {
         success: true,
-        capacity: suitableTable.tableCapacity,
-        quantity: suitableTable.quantity
+        optimalTableSize: optimalTable.tableCapacity,
+        numTables: totalQuantity,
+        suitableTables: suitableTables.map(table => ({
+            capacity: table.tableCapacity,
+            quantity: table.quantity
+        }))
     };
 }
 
@@ -88,7 +108,8 @@ export function generateTimeSlots(
     tableSettings: TableSettings,
     partySize: number,
     restaurantTimeZone: string,
-    availableReservationTimeSlots: ReservationSettingTimeSlotRange[]
+    availableReservationTimeSlots: ReservationSettingTimeSlotRange[],
+    capacityThreshold: number = 1
 ): TimeSlot[] {
 
     // console.log(`availableReservationTimeSlots: ${availableReservationTimeSlots}`);
@@ -103,13 +124,13 @@ export function generateTimeSlots(
     const currentTime = new Date();
 
     // Find suitable table
-    const tableResult = determineTableCapacity(partySize, tableSettings);
+    const tableResult = determineTableCapacity(partySize, tableSettings, capacityThreshold);
     if (!tableResult.success) {
-        console.error(tableResult.error?.message);
+        console.log(tableResult.error?.message);
         return [];
     }
-    const tableSize = tableResult.capacity!;
-    const tableCount = tableResult.quantity!;
+    const optimalTableSize = tableResult.optimalTableSize!;
+    const tableCount = tableResult.numTables!;
 
     // Generate slots for each time range
     const allSlots: TimeSlot[] = [];
@@ -160,8 +181,12 @@ export function generateTimeSlots(
                 continue;
             }
 
+            // console.log('\n=== Starting Table Availability Check ===');
+            // console.log('Checking for party size:', partySize);
+            // console.log('Initial table settings:', JSON.stringify(tableSettings.available_tables, null, 2));
+
             // Check existing reservations for this time slot
-            const overlappingReservations = existingReservations.filter(res => {
+            const timeOverlappingReservations = existingReservations.filter(res => {
                 const [existingResSlotStartHours, existingResSlotStartMinutes] = res.timeslot_start.split(':').map(Number);
                 const [existingResSlotEndHours, existingResSlotEndMinutes] = res.timeslot_end.split(':').map(Number);
 
@@ -201,16 +226,83 @@ export function generateTimeSlots(
                 // });
 
                 return (
-                    res.party_size <= tableSize && // Only count reservations using same or smaller table
                     currSlotStartTime < existingSlotEndDateTime &&
                     currSlotEndTime > existingSlotStartDateTime
                 );
             });
 
-            console.log('overlappingReservations: ', overlappingReservations);
+            // console.log('\nTime overlapping reservations:',
+            //     timeOverlappingReservations.map(r => ({
+            //         partySize: r.party_size,
+            //         time: `${r.timeslot_start}-${r.timeslot_end}`
+            //     }))
+            // );
 
-            // Slot is available if there are fewer reservations than tables
-            const isAvailable = overlappingReservations.length < tableCount;
+            // Sort overlapping reservations by party size (ascending)
+            const sortedReservations = timeOverlappingReservations.sort(
+                (a, b) => a.party_size - b.party_size
+            );
+            // console.log('\nSorted reservations by party size:',
+            //     sortedReservations.map(r => ({
+            //         id: r.date,
+            //         partySize: r.party_size
+            //     }))
+            // );
+
+            // Create a deep copy of available tables to work with
+            let remainingTables = tableSettings.available_tables.map(table => ({
+                ...table,
+                quantity: table.quantity,
+                tableTypeId: table.tableTypeId,
+                tableCapacity: table.tableCapacity,
+                tableTypeName: table.tableTypeName
+            }));
+            // console.log('\nInitial remaining tables:', remainingTables);
+
+            // Process each existing reservation
+            for (const reservation of sortedReservations) {
+                // console.log(`Processing reservation of party size ${reservation.party_size}`)
+                // Find suitable tables for this reservation
+                const suitableTables = remainingTables.filter(table =>
+                    table.tableCapacity >= reservation.party_size &&
+                    table.tableCapacity <= reservation.party_size + capacityThreshold
+                ).sort((a, b) => a.tableCapacity - b.tableCapacity);
+
+                // console.log('Suitable tables found:', suitableTables);
+
+                // Reduce table availability
+                if (suitableTables.length > 0) {
+                    const selectedTable = suitableTables[0];
+                    // console.log('Selected table:', selectedTable);
+
+                    const tableIndex = remainingTables.findIndex(
+                        t => t.tableCapacity === selectedTable.tableCapacity
+                    );
+
+                    if (tableIndex !== -1) {
+                        // console.log(`Reducing quantity for table capacity ${selectedTable.tableCapacity} from ${remainingTables[tableIndex].quantity} to ${remainingTables[tableIndex].quantity - 1}`);
+                        remainingTables[tableIndex].quantity--;
+                        if (remainingTables[tableIndex].quantity === 0) {
+                            // console.log(`Removing table capacity ${selectedTable.tableCapacity} as quantity is 0`);
+                            remainingTables.splice(tableIndex, 1);
+                        }
+                    }
+                } else {
+                    console.log('No suitable tables found for this reservation!');
+                }
+            }
+
+            // console.log('Remaining tables after processing:', remainingTables);
+            // Check if there are suitable tables remaining for the new reservation
+            const availableTables = remainingTables.filter(table =>
+                table.tableCapacity >= partySize &&
+                table.tableCapacity <= partySize + capacityThreshold
+            );
+            const isAvailable = availableTables.length > 0;
+
+            // console.log('\n=== Final Check ===');
+            // console.log('Available tables for new reservation:', availableTables);
+            // console.log('Is slot available:', availableTables.length > 0);
 
             // Convert time to restaurant's local timezone
             const currSlotStartTimeInRestaurantTz = convertToLocalTime(currSlotStartTime, restaurantTimeZone);
@@ -229,7 +321,7 @@ export function generateTimeSlots(
     // At the end of the function, before returning allSlots
     const uniqueSlots = allSlots.reduce((acc: TimeSlot[], current) => {
         // 1. Generate a unique key for the current slot (e.g., "11:00 AM-2:00 PM")
-        const key =  `${current.start}-${current.end}`;
+        const key = `${current.start}-${current.end}`;
 
         // 2. Check if this key already exists in our accumulator array
         const exists = acc.find(slot => `${slot.start}-${slot.end}` === key);
