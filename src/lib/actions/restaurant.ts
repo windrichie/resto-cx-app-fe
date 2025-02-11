@@ -4,35 +4,35 @@ import { Prisma } from '@prisma/client';
 
 // Define types for Prisma models
 type PrismaReservationSetting = Prisma.reservation_settingsGetPayload<{
-  select: {
-    id: true;
-    business_id: true;
-    day_of_week: true;
-    timeslot_length_minutes: true;
-    capacity_settings: true;
-    is_default: true;
-    specific_date: true;
-    available_reservation_time_slots: true;
-  }
+    select: {
+        id: true;
+        business_id: true;
+        day_of_week: true;
+        timeslot_length_minutes: true;
+        capacity_settings: true;
+        is_default: true;
+        specific_date: true;
+        available_reservation_time_slots: true;
+    }
 }>;
 
 type PrismaProduct = Prisma.productsGetPayload<{
-  select: {
-    id: true;
-    business_id: true;
-    name: true;
-    description: true;
-    price: true;
-    image_urls: true;
-    is_active: true;
-    category: true;
-    stock_quantity: true;
-    discount: true;
-    rating: true;
-    tags: true;
-    created_at: true;
-    updated_at: true;
-  }
+    select: {
+        id: true;
+        business_id: true;
+        name: true;
+        description: true;
+        price: true;
+        image_urls: true;
+        is_active: true;
+        category: true;
+        stock_quantity: true;
+        discount: true;
+        rating: true;
+        tags: true;
+        created_at: true;
+        updated_at: true;
+    }
 }>;
 
 export async function getRestaurant(slug: string): Promise<BusinessProfile | null> {
@@ -93,17 +93,19 @@ export async function getAllActiveRestaurants() {
 
 }
 
-export function sortOperatingHours(operatingHours: OperatingHours): Array<[string, string]> {
+export function sortOperatingHours(operatingHours: OperatingHours): Array<[string, string[]]> {
     const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
     return Object.entries(operatingHours)
         .filter(([_, schedule]) => schedule.enabled)
         .map(([day, schedule]) => {
-            const timeSlot = schedule.timeSlots[0];
+            const timeSlots = schedule.timeSlots.map(slot =>
+                `${slot.start} - ${slot.end}`
+            );
             return [
                 day.charAt(0).toUpperCase() + day.slice(1).toLowerCase(),
-                `${timeSlot.start} - ${timeSlot.end}`
-            ] as [string, string];
+                timeSlots
+            ] as [string, string[]];
         })
         .sort(([a], [b]) =>
             dayOrder.indexOf(a.toUpperCase()) - dayOrder.indexOf(b.toUpperCase())
@@ -139,7 +141,7 @@ export function formatPrice(price: number, discount: number | null): {
     if (!discount) {
         return { originalPrice: original, discountedPrice: null };
     }
-    
+
     const discounted = (price * (1 - discount / 100)).toFixed(2);
     return { originalPrice: original, discountedPrice: discounted };
 }
