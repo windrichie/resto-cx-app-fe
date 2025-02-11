@@ -250,7 +250,7 @@ export function generateTimeSlots(
             // );
 
             // Create a deep copy of available tables to work with
-            let remainingTables = tableSettings.available_tables.map(table => ({
+            const remainingTables = tableSettings.available_tables.map(table => ({
                 ...table,
                 quantity: table.quantity,
                 tableTypeId: table.tableTypeId,
