@@ -21,7 +21,7 @@ import {
 import CreateReservationForm from './create-reservation-form';
 import ModifyReservationForm from './modify-reservation-form';
 import { generateTimeSlots } from '@/lib/utils/reservation';
-import { getReservations } from '@/lib/actions/reservation';
+import { getActiveReservations } from '@/lib/actions/reservation';
 import { Reservation, ReservationForTimeSlotGen, BusinessProfile, ReservationSetting } from '@/types';
 import { convertToLocalTime } from '@/lib/utils/date-and-time';
 
@@ -91,7 +91,7 @@ export default function DatePicker({
   useEffect(() => {
     async function fetchAllReservations() {
       try {
-        const { reservations, error } = await getReservations(restaurant.id, new Date(), maxDate, restaurant.timezone);
+        const { reservations, error } = await getActiveReservations(restaurant.id, new Date(), maxDate, restaurant.timezone);
 
         if (error || !reservations) {
           console.error('Error:', error);

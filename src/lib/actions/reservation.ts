@@ -166,7 +166,7 @@ export async function getReservationByCode(confirmationCode: string) {
 }
 
 
-export async function getReservations(
+export async function getActiveReservations(
     restaurantId: string, startDate: Date, endDate: Date, restaurantTimezone: string
 ): Promise<GetReservationsResponse> {
     try {
@@ -186,7 +186,7 @@ export async function getReservations(
                     lte: endOfDay(utcEndDate),
                 },
                 status: {
-                    in: ['new', 'cancelled', 'completed']
+                    notIn: ['cancelled']
                 }
             },
             select: {
