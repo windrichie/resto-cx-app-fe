@@ -226,7 +226,24 @@ export function generateTimeSlots(
         }
     }
 
-    return allSlots;
+    // At the end of the function, before returning allSlots
+    const uniqueSlots = allSlots.reduce((acc: TimeSlot[], current) => {
+        // 1. Generate a unique key for the current slot (e.g., "11:00 AM-2:00 PM")
+        const key =  `${current.start}-${current.end}`;
+
+        // 2. Check if this key already exists in our accumulator array
+        const exists = acc.find(slot => `${slot.start}-${slot.end}` === key);
+
+        // 3. Only add the slot if it doesn't exist yet
+        if (!exists) {
+            acc.push(current);
+        }
+
+        // 4. Return the accumulator for the next iteration
+        return acc;
+    }, []); // Start with empty array
+
+    return uniqueSlots;
 }
 
 export function generateConfirmationCode(): string {
