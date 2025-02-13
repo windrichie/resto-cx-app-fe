@@ -25,8 +25,6 @@ interface TableSettings {
 }
 interface TableCapacityResult {
     success: boolean;
-    optimalTableSize?: number;
-    numTables?: number;
     suitableTables?: {
         capacity: number;
         quantity: number;
@@ -42,7 +40,7 @@ interface TableCapacityResult {
 export function determineTableCapacity(
     partySize: number,
     tableSettings: TableSettings,
-    capacityThreshold: number = 0 // Default threshold of 1 seat difference
+    capacityThreshold: number // Default threshold of 1 seat difference
 ): TableCapacityResult {
     // Guard clause for empty or invalid table settings
     if (!tableSettings?.available_tables?.length) {
@@ -84,16 +82,11 @@ export function determineTableCapacity(
         table.tableCapacity <= optimalTable.tableCapacity + capacityThreshold
     );
 
-    console.log('suitableTables: ', suitableTables)
-
-    // Calculate total quantity of suitable tables
-    const totalQuantity = suitableTables.reduce((sum, table) => sum + table.quantity, 0);
+    // console.log('suitableTables: ', suitableTables)
 
     // Return successful result with table details
     return {
         success: true,
-        optimalTableSize: optimalTable.tableCapacity,
-        numTables: totalQuantity,
         suitableTables: suitableTables.map(table => ({
             capacity: table.tableCapacity,
             quantity: table.quantity
@@ -129,8 +122,6 @@ export function generateTimeSlots(
         console.log(tableResult.error?.message);
         return [];
     }
-    const optimalTableSize = tableResult.optimalTableSize!;
-    const tableCount = tableResult.numTables!;
 
     // Generate slots for each time range
     const allSlots: TimeSlot[] = [];
