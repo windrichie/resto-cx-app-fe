@@ -30,6 +30,7 @@ interface SendReservationEmailParams {
     // country: string;
     reservationLink: string;
     restaurantThumbnail: string;
+    restaurantTimezone: string;
 }
 
 interface SendCancellationEmailParams {
@@ -57,7 +58,8 @@ export async function sendCreateOrModifyReservationEmail({
     // postalCode,
     // country,
     reservationLink,
-    restaurantThumbnail
+    restaurantThumbnail,
+    restaurantTimezone
 }: SendReservationEmailParams) {
     const emailHtml = await render(
         ReservationConfirmedOrModified({
@@ -71,7 +73,8 @@ export async function sendCreateOrModifyReservationEmail({
             // postalCode,
             // country,
             reservationLink,
-            restaurantThumbnail
+            restaurantThumbnail,
+            restaurantTimezone
         })
     );
 

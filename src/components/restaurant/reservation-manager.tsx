@@ -177,7 +177,7 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
 
                             <div className="flex items-center gap-3 text-gray-700">
                                 <Clock className="h-5 w-5 text-gray-400" />
-                                <span>{convertTo12HourFormat(reservation.timeslot_start)}</span>
+                                <span>{convertTo12HourFormat(reservation.timeslot_start)}</span><span className="text-gray-400">({reservation.business.timezone})</span>
                             </div>
 
                             <div className="flex items-center gap-3 text-gray-700">
