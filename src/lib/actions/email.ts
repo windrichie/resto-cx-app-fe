@@ -1,21 +1,9 @@
-import nodemailer from 'nodemailer';
-import ReservationConfirmedOrModified from "@/emails/reservation-confirmed-modified";
+import { Resend } from 'resend';
 import { render } from "@react-email/components";
+import ReservationConfirmedOrModified from "@/emails/reservation-confirmed-modified";
 import ReservationCancelled from '@/emails/reservation-cancelled';
 
-
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD,
-    },
-    tls: {
-        ciphers: 'SSLv3',
-    },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface SendReservationEmailParams {
     mode: string;
@@ -90,14 +78,13 @@ export async function sendCreateOrModifyReservationEmail({
         };
     }
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
+    return await resend.emails.send({
+        from: `${restaurantName} <reservations@notifications.hellogroot.com>`,
         to,
         subject: emailSubject,
         html: emailHtml,
-    };
+    });
 
-    return await transporter.sendMail(mailOptions);
 }
 
 export async function sendCancellationEmail({
@@ -126,12 +113,10 @@ export async function sendCancellationEmail({
         })
     );
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
+    return await resend.emails.send({
+        from: `${restaurantName} <reservations@notifications.hellogroot.com>`,
         to,
         subject: `Reservation Cancelled - ${restaurantName}`,
         html: emailHtml,
-    };
-
-    return await transporter.sendMail(mailOptions);
+    });
 }
