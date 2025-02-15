@@ -98,6 +98,7 @@ export function generateTimeSlots(
     partySize: number,
     restaurantTimeZone: string,
     availableReservationTimeSlots: ReservationSettingTimeSlotRange[],
+    minDateTime: Date,
     capacityThreshold: number = 1
 ): TimeSlot[] {
 
@@ -155,7 +156,7 @@ export function generateTimeSlots(
             const currSlotEndTime = addMinutes(currSlotStartTime, timeSlotLengthMinutes);
 
             // Skip slots that are in the past
-            if (currSlotEndTime <= currentTime) {
+            if (currSlotEndTime <= currentTime || currSlotStartTime < minDateTime) {
                 currSlotStartTime = currSlotEndTime;
                 continue;
             }
