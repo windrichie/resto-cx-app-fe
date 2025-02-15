@@ -19,6 +19,7 @@ interface ReservationEmailProps {
     address: string;
     reservationLink: string;
     restaurantThumbnail: string;
+    restaurantTimezone: string;
 }
 
 export default function ReservationConfirmedOrModified({
@@ -30,7 +31,8 @@ export default function ReservationConfirmedOrModified({
     guests,
     address,
     reservationLink,
-    restaurantThumbnail
+    restaurantThumbnail,
+    restaurantTimezone
 }: ReservationEmailProps) {
     let title = "";
     let message = "";
@@ -114,7 +116,7 @@ export default function ReservationConfirmedOrModified({
                                                 Name: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{customerName}</span>
                                             </Text>
                                             <Text style={{ fontSize: '16px', margin: '0 0 32px', color: '#333333' }}>
-                                                When: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date} · {time}</span>
+                                                When: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date} · {time} ({restaurantTimezone})</span>
                                             </Text>
                                         </td>
                                     </tr>
