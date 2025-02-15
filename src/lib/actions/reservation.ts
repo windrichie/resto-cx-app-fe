@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { CapacitySettings, Reservation, ReservationForTimeSlotGen, ReservationSetting, ReservationSettingTimeSlotRange, TableSetting } from '@/types';
+import { Reservation, ReservationForTimeSlotGen, ReservationSetting, ReservationSettingTimeSlotRange } from '@/types';
 import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
@@ -118,7 +118,6 @@ export async function getReservationByCode(confirmationCode: string) {
 
             // Transform reservation settings
             const transformedReservationSettings = business_profiles.reservation_settings.map((setting) => {
-                const parsedCapacitySettings = setting.capacity_settings as unknown as CapacitySettings;
                 const parsedTimeSlots = setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[];
 
                 return {
@@ -126,10 +125,9 @@ export async function getReservationByCode(confirmationCode: string) {
                     business_id: setting.business_id,
                     day_of_week: setting.day_of_week,
                     timeslot_length_minutes: setting.timeslot_length_minutes,
-                    capacity_settings: parsedCapacitySettings,
+                    available_reservation_time_slots: parsedTimeSlots || [],
                     is_default: setting.is_default,
-                    specific_date: setting.specific_date,
-                    available_reservation_time_slots: parsedTimeSlots || []
+                    specific_date: setting.specific_date
                 } as ReservationSetting;
             });
 
@@ -310,7 +308,8 @@ export async function createReservation(prevState: State, formData: FormData): P
                         guests: data.partySize,
                         address: data.restaurantAddress,
                         reservationLink: fullReservationLink,
-                        restaurantThumbnail: restaurantThumbnail
+                        restaurantThumbnail: restaurantThumbnail,
+                        restaurantTimezone: data.restaurantTimezone
                     });
 
                     revalidatePath(`/${data.restaurantId}`);
@@ -453,7 +452,8 @@ export async function updateReservation(
                     guests: data.partySize,
                     address: data.restaurantAddress,
                     reservationLink: fullReservationLink,
-                    restaurantThumbnail: restaurantThumbnail
+                    restaurantThumbnail: restaurantThumbnail,
+                    restaurantTimezone: data.restaurantTimezone
                 });
 
                 revalidatePath(`/reservation/${data.confirmationCode}`);

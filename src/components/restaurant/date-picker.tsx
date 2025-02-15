@@ -133,7 +133,7 @@ export default function DatePicker({
       return;
     }
 
-    if (currentSettings.available_reservation_time_slots.length == 0 && currentSettings.capacity_settings.available_tables.length == 0) {
+    if (currentSettings.available_reservation_time_slots.length == 0) {
       setTimeSlots([]);
       console.log(`Found a reservation setting, but no available tables, no reservation times set for ${selectedDate}.`);
       return;
@@ -143,7 +143,6 @@ export default function DatePicker({
       selectedDate,
       currentSettings.timeslot_length_minutes,
       dateReservations,
-      currentSettings.capacity_settings,
       partySize,
       restaurant.timezone,
       currentSettings.available_reservation_time_slots

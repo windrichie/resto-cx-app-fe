@@ -41,13 +41,10 @@ export interface TableSetting {
     tableTypeName: string;
 }
 
-export interface CapacitySettings {
-    available_tables: TableSetting[];
-}
-
 export interface ReservationSettingTimeSlotRange {
     start_time: string;
     end_time: string;
+    available_tables: TableSetting[];
 }
 
 export interface ReservationSetting {
@@ -56,7 +53,6 @@ export interface ReservationSetting {
     day_of_week: number;
     timeslot_length_minutes: number;
     available_reservation_time_slots: ReservationSettingTimeSlotRange[];
-    capacity_settings: CapacitySettings;
     is_default: boolean;
     specific_date?: Date | null;
 }
