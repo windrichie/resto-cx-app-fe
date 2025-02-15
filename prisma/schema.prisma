@@ -39,6 +39,7 @@ model business_profiles {
   deposit_amount                               Decimal?               @db.Decimal(10, 2)
   deposit_currency                             String?                @default("SGD")
   table_capacity                               Json?                  @db.Json
+  country                                      String?
   users_business_profiles_owner_user_idTousers users                  @relation("business_profiles_owner_user_idTousers", fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_business_profiles_owner_user_id")
   products                                     products[]
   reservation_settings                         reservation_settings[]
@@ -72,9 +73,9 @@ model reservation_settings {
   id                               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   business_id                      String            @db.Uuid
   day_of_week                      Int
-  reservation_start_time           String
-  reservation_end_time             String
-  capacity_settings                Json
+  reservation_start_time           String?
+  reservation_end_time             String?
+  capacity_settings                Json?
   specific_date                    DateTime?         @db.Date
   is_default                       Boolean
   timeslot_length_minutes          Int
