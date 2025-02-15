@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { format, addDays, startOfDay, isBefore, isSameDay } from 'date-fns';
+import { format, addDays, startOfDay, isBefore, isSameDay, addHours } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -56,13 +56,17 @@ export default function DatePicker({
   reservation,
   onModificationComplete
 }: DatePickerProps) {
-  const minDate = useMemo(() => {
+  const minDateTime = useMemo(() => {
     const now = new Date();
-    return addDays(now, Math.ceil(restaurant.min_allowed_booking_advance_hours / 24));
+    return addHours(now, restaurant.min_allowed_booking_advance_hours)   ;
   }, [restaurant.min_allowed_booking_advance_hours]);
+  const maxDateTime = useMemo(() => {
+    const now = new Date();
+    return addHours(now, restaurant.max_allowed_booking_advance_hours);
+  }, [restaurant.max_allowed_booking_advance_hours]);
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (initialDate) return initialDate;
-    return startOfDay(minDate);
+    return startOfDay(minDateTime);
   });
   const [partySize, setPartySize] = useState<number>(initialPartySize || 2);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
@@ -79,7 +83,6 @@ export default function DatePicker({
     return null;
   });
   const [allReservations, setAllReservations] = useState<ReservationForTimeSlotGen[]>([]);
-  const maxDate = useMemo(() => addDays(new Date(), restaurant.max_allowed_booking_advance_hours), [restaurant.max_allowed_booking_advance_hours]);
   // const minDate = useMemo(() => {
   //   const now = new Date();
   //   const nearestDate = addDays(now, Math.ceil(restaurant.min_allowed_booking_advance_hours / 24 - 1));
@@ -91,7 +94,7 @@ export default function DatePicker({
   useEffect(() => {
     async function fetchAllReservations() {
       try {
-        const { reservations, error } = await getActiveReservations(restaurant.id, new Date(), maxDate, restaurant.timezone);
+        const { reservations, error } = await getActiveReservations(restaurant.id, new Date(), maxDateTime, restaurant.timezone);
 
         if (error || !reservations) {
           console.error('Error:', error);
@@ -105,7 +108,7 @@ export default function DatePicker({
     }
 
     fetchAllReservations();
-  }, [restaurant.id, restaurant.max_allowed_booking_advance_hours, maxDate, restaurant.timezone]);
+  }, [restaurant.id, restaurant.max_allowed_booking_advance_hours, maxDateTime, restaurant.timezone]);
 
   // Generate time slots when date or party size changes
   useEffect(() => {
@@ -145,7 +148,8 @@ export default function DatePicker({
       dateReservations,
       partySize,
       restaurant.timezone,
-      currentSettings.available_reservation_time_slots
+      currentSettings.available_reservation_time_slots,
+      minDateTime
     );
 
     setTimeSlots(slots);
@@ -205,8 +209,8 @@ export default function DatePicker({
                 }
               }}
               disabled={(date) =>
-                isBefore(date, startOfDay(minDate)) ||
-                isBefore(maxDate, date)
+                isBefore(date, startOfDay(minDateTime)) ||
+                isBefore(maxDateTime, date)
               }
             />
           </PopoverContent>
