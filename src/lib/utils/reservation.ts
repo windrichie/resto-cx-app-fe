@@ -20,9 +20,6 @@ interface TableType {
     tableCapacity: number;
     tableTypeName: string;
 }
-interface TableSettings {
-    available_tables: TableType[];
-}
 interface TableCapacityResult {
     success: boolean;
     suitableTables?: {
@@ -39,11 +36,11 @@ interface TableCapacityResult {
 
 export function determineTableCapacity(
     partySize: number,
-    tableSettings: TableSettings,
+    available_tables: TableType[],
     capacityThreshold: number // Default threshold of 1 seat difference
 ): TableCapacityResult {
     // Guard clause for empty or invalid table settings
-    if (!tableSettings?.available_tables?.length) {
+    if (!available_tables?.length) {
         return {
             success: false,
             error: {
@@ -54,7 +51,7 @@ export function determineTableCapacity(
     }
 
     // Sort available tables by capacity (ascending)
-    const sortedTables = [...tableSettings.available_tables]
+    const sortedTables = [...available_tables]
         .sort((a, b) => a.tableCapacity - b.tableCapacity);
 
     // Find the optimal capacity that can accommodate the party size
@@ -98,7 +95,6 @@ export function generateTimeSlots(
     selectedDate: Date,
     timeSlotLengthMinutes: number,
     existingReservations: ReservationForTimeSlotGen[],
-    tableSettings: TableSettings,
     partySize: number,
     restaurantTimeZone: string,
     availableReservationTimeSlots: ReservationSettingTimeSlotRange[],
@@ -116,19 +112,23 @@ export function generateTimeSlots(
     // Get current time
     const currentTime = new Date();
 
-    // Find suitable table
-    const tableResult = determineTableCapacity(partySize, tableSettings, capacityThreshold);
-    if (!tableResult.success) {
-        console.log(tableResult.error?.message);
-        return [];
-    }
-
     // Generate slots for each time range
     const allSlots: TimeSlot[] = [];
 
-    for (const timeRange of availableReservationTimeSlots) {
-        const [startHours, startMinutes] = timeRange.start_time.split(':').map(Number);
-        const [endHours, endMinutes] = timeRange.end_time.split(':').map(Number);
+    for (const timeSegmentSettings of availableReservationTimeSlots) {
+        // Get table settings for this specific time range
+        const tableResult = determineTableCapacity(
+            partySize,
+            timeSegmentSettings.available_tables,
+            1 // capacityThreshold
+        );
+
+        if (!tableResult.success) {
+            continue; // Skip this time range if no suitable tables
+        }
+
+        const [startHours, startMinutes] = timeSegmentSettings.start_time.split(':').map(Number);
+        const [endHours, endMinutes] = timeSegmentSettings.end_time.split(':').map(Number);
 
         // Create datetime objects with timezone offset
         const rangeStartDateTimeBeforeTZOffset = new Date(Date.UTC(
@@ -241,7 +241,7 @@ export function generateTimeSlots(
             // );
 
             // Create a deep copy of available tables to work with
-            const remainingTables = tableSettings.available_tables.map(table => ({
+            const remainingTables = timeSegmentSettings.available_tables.map(table => ({
                 ...table,
                 quantity: table.quantity,
                 tableTypeId: table.tableTypeId,

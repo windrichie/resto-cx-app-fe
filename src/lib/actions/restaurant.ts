@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import type { BusinessProfile, CapacitySettings, OperatingHours, ReservationSetting, ReservationSettingTimeSlotRange, Product } from '@/types';
+import type { BusinessProfile, OperatingHours, ReservationSetting, ReservationSettingTimeSlotRange, Product } from '@/types';
 import { Prisma } from '@prisma/client';
 
 // Define types for Prisma models
@@ -9,7 +9,6 @@ type PrismaReservationSetting = Prisma.reservation_settingsGetPayload<{
         business_id: true;
         day_of_week: true;
         timeslot_length_minutes: true;
-        capacity_settings: true;
         is_default: true;
         specific_date: true;
         available_reservation_time_slots: true;
@@ -59,7 +58,6 @@ export async function getRestaurant(slug: string): Promise<BusinessProfile | nul
         business_id: setting.business_id,
         day_of_week: setting.day_of_week,
         timeslot_length_minutes: setting.timeslot_length_minutes,
-        capacity_settings: setting.capacity_settings as unknown as CapacitySettings,
         is_default: setting.is_default,
         specific_date: setting.specific_date,
         available_reservation_time_slots: (setting.available_reservation_time_slots as unknown as ReservationSettingTimeSlotRange[]) || []
