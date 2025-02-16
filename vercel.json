@@ -1,0 +1,12 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron/reminders?type=1_week",
+            "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/cron/reminders?type=1_day",
+            "schedule": "0 1 * * *"
+        }
+    ]
+}
