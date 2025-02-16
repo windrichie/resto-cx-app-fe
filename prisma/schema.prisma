@@ -106,6 +106,10 @@ model reservations {
   special_occasions         String?
   special_requests          String?
   deposit_payment_intent_id String?
+  reminder_1_week_sent      Boolean?           @default(false)
+  reminder_1_week_at        DateTime?          @db.Timestamptz(6)
+  reminder_1_day_sent       Boolean?           @default(false)
+  reminder_1_day_at         DateTime?          @db.Timestamptz(6)
   business_profiles         business_profiles  @relation(fields: [business_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_business_id")
   users                     users              @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_customer_id")
 
