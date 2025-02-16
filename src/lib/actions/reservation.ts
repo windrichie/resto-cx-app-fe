@@ -20,6 +20,10 @@ type ReservationUpdateData = {
     timeslot_end: string;
     status: reservation_status;
     deposit_payment_intent_id?: string;
+    reminder_1_week_at: Date,
+    reminder_1_week_sent: boolean,
+    reminder_1_day_at: Date,
+    reminder_1_day_sent: boolean
 };
 
 export type State = {
@@ -420,6 +424,20 @@ export async function updateReservation(
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
+    // calculate timestamp for reminder email sending
+    const reminder1WeekTimestampTz = calculateReminderTimeStamp(
+        selectedDate,
+        data.timeSlotStart,
+        data.restaurantTimezone,
+        7 * 24
+    );
+    const reminder1DayTimestampTz = calculateReminderTimeStamp(
+        selectedDate,
+        data.timeSlotStart,
+        data.restaurantTimezone,
+        1 * 24
+    );
+
     try {
         // First try block for database operation
         // Get payment intent ID from form data if it exists
@@ -432,6 +450,10 @@ export async function updateReservation(
             timeslot_start: startTime24HrString,
             timeslot_end: endTime24HrString,
             status: reservation_status.new,
+            reminder_1_week_at: reminder1WeekTimestampTz,
+            reminder_1_week_sent: false,
+            reminder_1_day_at: reminder1DayTimestampTz,
+            reminder_1_day_sent: false
         };
 
         // Only add deposit_payment_intent_id if it exists in form data
