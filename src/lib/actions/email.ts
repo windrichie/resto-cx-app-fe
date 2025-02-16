@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { render } from "@react-email/components";
 import ReservationConfirmedOrModified from "@/emails/reservation-confirmed-modified";
 import ReservationCancelled from '@/emails/reservation-cancelled';
+import ReservationReminder from '@/emails/reservation-reminder';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -32,6 +33,20 @@ interface SendCancellationEmailParams {
     restaurantSlug: string;
     restaurantThumbnail: string;
     baseUrl: string;
+}
+
+interface SendReminderEmailParams {
+    reminderType: '1_week' | '1_day';
+    to: string;
+    customerName: string;
+    restaurantName: string;
+    date: string;
+    time: string;
+    guests: number;
+    address: string;
+    reservationLink: string;
+    restaurantThumbnail: string;
+    restaurantTimezone: string;
 }
 
 export async function sendCreateOrModifyReservationEmail({
@@ -117,6 +132,49 @@ export async function sendCancellationEmail({
         from: `${restaurantName} <reservations@notifications.hellogroot.com>`,
         to,
         subject: `Reservation Cancelled - ${restaurantName}`,
+        html: emailHtml,
+    });
+}
+
+export async function sendReservationReminderEmail({
+    reminderType,
+    to,
+    customerName,
+    restaurantName,
+    date,
+    time,
+    guests,
+    address,
+    reservationLink,
+    restaurantThumbnail,
+    restaurantTimezone
+}: SendReminderEmailParams) {
+    const emailHtml = await render(
+        ReservationReminder({
+            reminderType,
+            customerName,
+            restaurantName,
+            date,
+            time,
+            guests,
+            address,
+            reservationLink,
+            restaurantThumbnail,
+            restaurantTimezone
+        })
+    );
+
+    const reminderText = {
+        '1_week': 'in less than a week',
+        '1_day': 'in less than a day'
+    }[reminderType];
+
+    const emailSubject = `Reminder: Your reservation at ${restaurantName} is ${reminderText}`;
+
+    return await resend.emails.send({
+        from: `${restaurantName} <reservations@notifications.hellogroot.com>`,
+        to,
+        subject: emailSubject,
         html: emailHtml,
     });
 }
