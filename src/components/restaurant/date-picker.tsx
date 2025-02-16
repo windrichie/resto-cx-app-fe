@@ -154,7 +154,7 @@ export default function DatePicker({
 
     setTimeSlots(slots);
     setCurrentResSettings(currentSettings);
-  }, [selectedDate, partySize, allReservations, operatingHours, reservationSettings, restaurant.timezone, currentResSettings]);
+  }, [selectedDate, partySize, allReservations, operatingHours, reservationSettings, restaurant.timezone, currentResSettings, minDateTime]);
 
   useEffect(() => {
     if (isModifying && initialTime && timeSlots.length > 0) {

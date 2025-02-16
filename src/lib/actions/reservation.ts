@@ -20,10 +20,10 @@ type ReservationUpdateData = {
     timeslot_end: string;
     status: reservation_status;
     deposit_payment_intent_id?: string;
-    reminder_1_week_at: Date,
-    reminder_1_week_sent: boolean,
-    reminder_1_day_at: Date,
-    reminder_1_day_sent: boolean
+    reminder_1_week_at: Date;
+    reminder_1_week_sent: boolean;
+    reminder_1_day_at: Date;
+    reminder_1_day_sent: boolean;
 };
 
 export type State = {
