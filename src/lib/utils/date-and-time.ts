@@ -1,5 +1,6 @@
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { TZDate } from '@date-fns/tz';
+import { subHours } from 'date-fns';
 
 export function convertToUtc(date: Date, restaurantTimezone: string): Date {
     return fromZonedTime(date, restaurantTimezone);
@@ -64,6 +65,35 @@ export function calculateReservationTimes(
         endTimeHours: String(endDateTime.getHours()).padStart(2, '0'),
         endTimeMinutes: String(endDateTime.getMinutes()).padStart(2, '0')
     }
+}
+
+export function calculateReminderTimeStamp(
+    date: Date,
+    timeSlotStart: string,
+    timezone: string,
+    hoursBeforeReservationTime: number,
+): Date {
+    const [timeWithoutPeriod, period] = timeSlotStart.split(' ');
+    const [hours, minutes] = timeWithoutPeriod.split(':');
+    let hour24 = parseInt(hours);
+
+    if (period === 'PM' && hour24 !== 12) {
+        hour24 += 12;
+    } else if (period === 'AM' && hour24 === 12) {
+        hour24 = 0;
+    }
+
+    const startDateTime = new TZDate(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        hour24,
+        parseInt(minutes),
+        0,
+        timezone
+    );
+
+    return subHours(startDateTime, hoursBeforeReservationTime);
 }
 
 export function getTimezoneOffsetMinutes(timezone: string): number {
