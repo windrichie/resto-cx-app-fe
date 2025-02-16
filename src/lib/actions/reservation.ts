@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { Reservation, ReservationForTimeSlotGen, ReservationSetting, ReservationSettingTimeSlotRange } from '@/types';
-import { calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
+import { calculateReminderTimeStamp, calculateReservationTimes, convertTo12HourFormat, convertToUtc } from '../utils/date-and-time';
 import { generateReservationMAC } from '@/lib/utils/reservation-auth';
 import { sendCancellationEmail, sendCreateOrModifyReservationEmail } from './email';
 import { getBaseUrl } from '../utils/common';
@@ -242,6 +242,7 @@ export async function createReservation(prevState: State, formData: FormData): P
     // get customer ID
     const customerId = await getOrCreateUserId(data.customerEmail, data.customerName, data.customerPhone);
 
+    // construct reservation slot timnigs to be put into DB
     const { startTimeHours, startTimeMinutes, endTimeHours, endTimeMinutes } = calculateReservationTimes(
         selectedDate,
         data.timeSlotStart,
@@ -250,8 +251,22 @@ export async function createReservation(prevState: State, formData: FormData): P
     );
     const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
+    // get 12hr format for email
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
 
+    // calculate timestamp for reminder email sending
+    const reminder1WeekTimestampTz = calculateReminderTimeStamp(
+        selectedDate,
+        data.timeSlotStart,
+        data.restaurantTimezone,
+        7 * 24
+    );
+    const reminder1DayTimestampTz = calculateReminderTimeStamp(
+        selectedDate,
+        data.timeSlotStart,
+        data.restaurantTimezone,
+        1 * 24
+    );
 
     let attempts = 0;
     const maxAttempts = 5;
@@ -281,6 +296,10 @@ export async function createReservation(prevState: State, formData: FormData): P
                     special_requests: data.specialRequests,
                     confirmation_code: confirmationCode,
                     status: reservation_status.new,
+                    reminder_1_week_at: reminder1WeekTimestampTz,
+                    reminder_1_week_sent: false,
+                    reminder_1_day_at: reminder1DayTimestampTz,
+                    reminder_1_day_sent: false,
                     ...(data.paymentIntentId && { deposit_payment_intent_id: data.paymentIntentId })
                 },
             });
