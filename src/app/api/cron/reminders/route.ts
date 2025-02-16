@@ -11,6 +11,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const reminderType = searchParams.get('type') as '1_week' | '1_day';
 
+    console.log(`Starting cron job for ${reminderType} reminder.`);
+
     let advanceTime = 0;
     try {
         if (reminderType === '1_week') {
@@ -61,9 +63,13 @@ export async function GET(request: Request) {
             }
         });
 
+        if (reservations.length === 0) {
+            console.log("No reservations requiring reminders found.");
+        }
+
         for (const reservation of reservations) {
             try {
-                console.log('current reservation: ', reservation);
+                console.log('Current reservation: ', reservation);
                 // Format date and time
                 const reservationDate = new Date(reservation.date);
                 const formattedDate = format(reservationDate, 'PPP');
@@ -102,6 +108,8 @@ export async function GET(request: Request) {
                         updated_at: new Date()
                     }
                 });
+
+                console.log("Email sent and status updated.")
             } catch (emailError) {
                 console.error(`Failed to process reminder for reservation ${reservation.id}:`, emailError);
                 continue;
