@@ -137,7 +137,7 @@ export default function ModifyReservationForm({
         if (!formRef) return false;
 
         const formData = new FormData(formRef);
-        return validateForm(formData); // Your existing validation function
+        return validateForm(formData);
     };
 
     const validateForm = (formData: FormData): boolean => {

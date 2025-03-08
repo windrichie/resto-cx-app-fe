@@ -539,6 +539,33 @@ export async function updateReservation(
 
 }
 
+export async function updateReservationPaymentIntent(
+    confirmationCode: string,
+    paymentIntentId: string
+) {
+    try {
+        // Update only the payment intent ID
+        await prisma.reservations.update({
+            where: { confirmation_code: confirmationCode },
+            data: {
+                deposit_payment_intent_id: paymentIntentId
+            }
+        });
+
+        revalidatePath(`/reservation/${confirmationCode}`);
+        return {
+            success: true,
+            message: 'Payment information updated successfully'
+        };
+    } catch (error) {
+        console.error('Error updating payment intent:', error);
+        return {
+            success: false,
+            message: 'Failed to update payment information'
+        };
+    }
+}
+
 export async function cancelReservation(
     reservation: Reservation
 ) {

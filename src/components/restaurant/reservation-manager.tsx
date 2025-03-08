@@ -8,7 +8,7 @@ import {
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-  } from "@/components/ui/tooltip";
+} from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { CalendarDays, Clock, Users, User, Mail, Phone, Hash } from 'lucide-react';
 import RestaurantDetails from '@/components/restaurant/details';
@@ -18,6 +18,7 @@ import { cancelReservation } from '@/lib/actions/reservation';
 import CancelledReservationView from './cancelled-reservation';
 import { Reservation } from '@/types/index';
 import { convertTo12HourFormat, convertToLocalTime } from '@/lib/utils/date-and-time';
+import { capturePayment } from '@/lib/actions/payment';
 
 interface ReservationManagerProps {
     reservation: Reservation;
@@ -64,21 +65,36 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
 
     const handleCancel = async () => {
         setIsPending(true);
-        const result = await cancelReservation(reservation);
-        setIsPending(false);
 
-        if (result.success) {
-            toast({
-                title: "Success",
-                description: result.message,
-            });
-            setShowCancelDialog(false);
-        } else {
+        try {
+            if (isWithinCancellationPeriod &&
+                reservation.deposit_payment_intent_id) {
+                await capturePayment(reservation.deposit_payment_intent_id);
+            }
+
+            const result = await cancelReservation(reservation);
+
+            if (result.success) {
+                toast({
+                    title: "Your reservation is successfully cancelled.",
+                    // description: result.message,
+                });
+                setShowCancelDialog(false);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: result.message,
+                });
+            }
+        } catch (error) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: result.message,
+                description: "Failed to process cancellation. Please try again.",
             });
+        } finally {
+            setIsPending(false);
         }
     };
 
@@ -99,8 +115,8 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
             <div className="grid md:grid-cols-2 gap-36">
                 {/* Left Column */}
                 <div>
-                    <RestaurantDetails restaurant={reservation.business} 
-                    products={reservation.business.products}
+                    <RestaurantDetails restaurant={reservation.business}
+                        products={reservation.business.products}
                     />
                 </div>
 
@@ -144,19 +160,17 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                                                         variant="destructive"
                                                         size="sm"
                                                         onClick={() => setShowCancelDialog(true)}
-                                                        disabled={isCancelled(reservation.status) ||
-                                                            isPending ||
-                                                            isWithinCancellationPeriod}
+                                                        disabled={isCancelled(reservation.status) || isPending}
                                                     >
                                                         Cancel
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>
-                                            {isWithinCancellationPeriod && (
+                                            {/* {isWithinCancellationPeriod && (
                                                 <TooltipContent>
                                                     <p>Cancellations are not allowed within {reservation.business.allowed_cancellation_hours} hours of the reservation</p>
                                                 </TooltipContent>
-                                            )}
+                                            )} */}
                                         </Tooltip>
                                     </TooltipProvider>
                                 )}
@@ -220,6 +234,9 @@ export default function ReservationManager({ reservation }: ReservationManagerPr
                 onOpenChange={setShowCancelDialog}
                 onConfirm={handleCancel}
                 isPending={isPending}
+                isWithinCancellationPeriod={isWithinCancellationPeriod}
+                restaurant={reservation.business}
+                reservation={reservation}
             />
         </main>
     );
