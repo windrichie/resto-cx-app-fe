@@ -14,7 +14,8 @@ interface ReservationReminderEmailProps {
     customerName: string;
     restaurantName: string;
     date: string;
-    time: string;
+    startTime: string;
+    endTime: string;
     guests: number;
     address: string;
     reservationLink: string;
@@ -27,7 +28,8 @@ export default function ReservationReminder({
     customerName,
     restaurantName,
     date,
-    time,
+    startTime,
+    endTime,
     guests,
     address,
     reservationLink,
@@ -98,8 +100,11 @@ export default function ReservationReminder({
                                             <Text style={{ fontSize: '16px', margin: '0 0 12px', color: '#333333' }}>
                                                 Name: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{customerName}</span>
                                             </Text>
+                                            <Text style={{ fontSize: '16px', margin: '0 0 12px', color: '#333333' }}>
+                                                Date: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date}</span>
+                                            </Text>
                                             <Text style={{ fontSize: '16px', margin: '0 0 32px', color: '#333333' }}>
-                                                When: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date} · {time} ({restaurantTimezone})</span>
+                                                Time: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{startTime} - {endTime} ({restaurantTimezone})</span>
                                             </Text>
                                         </td>
                                     </tr>

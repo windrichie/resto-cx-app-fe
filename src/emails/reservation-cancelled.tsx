@@ -4,7 +4,6 @@ import {
     Preview,
     Body,
     Container,
-    Section,
     Text,
     Link,
 } from "@react-email/components";
@@ -13,24 +12,28 @@ interface ReservationEmailProps {
     customerName: string;
     restaurantName: string;
     date: string;
-    time: string;
+    startTime: string;
+    endTime: string;
     guests: number;
     address: string;
     restaurantSlug: string;
     restaurantThumbnail: string;
     baseUrl: string;
+    restaurantTimezone: string;
 }
 
 export default function ReservationCancelled({
     customerName,
     restaurantName,
     date,
-    time,
+    startTime,
+    endTime,
     guests,
     address,
     restaurantSlug,
     restaurantThumbnail,
     baseUrl,
+    restaurantTimezone
 }: ReservationEmailProps) {
     return (
         <Html>
@@ -91,8 +94,11 @@ export default function ReservationCancelled({
                                             <Text style={{ fontSize: '16px', margin: '0 0 12px', color: '#333333' }}>
                                                 Name: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{customerName}</span>
                                             </Text>
+                                            <Text style={{ fontSize: '16px', margin: '0 0 12px', color: '#333333' }}>
+                                                Date: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date}</span>
+                                            </Text>
                                             <Text style={{ fontSize: '16px', margin: '0 0 32px', color: '#333333' }}>
-                                                When: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{date} · {time}</span>
+                                                Time: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{startTime} - {endTime} ({restaurantTimezone})</span>
                                             </Text>
                                         </td>
                                     </tr>
