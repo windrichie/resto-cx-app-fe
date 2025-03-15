@@ -257,6 +257,7 @@ export async function createReservation(prevState: State, formData: FormData): P
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
     // get 12hr format for email
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
+    const endTime12HrString = convertTo12HourFormat(endTime24HrString);
 
     // calculate timestamp for reminder email sending
     const reminder1WeekTimestampTz = calculateReminderTimeStamp(
@@ -327,7 +328,8 @@ export async function createReservation(prevState: State, formData: FormData): P
                         customerName: data.customerName,
                         restaurantName: data.restaurantName,
                         date: selectedDateStr,
-                        time: startTime12HrString,
+                        startTime: startTime12HrString,
+                        endTime: endTime12HrString,
                         guests: data.partySize,
                         address: data.restaurantAddress,
                         reservationLink: fullReservationLink,
@@ -423,6 +425,7 @@ export async function updateReservation(
     const startTime24HrString = `${startTimeHours.toString().padStart(2, '0')}:${startTimeMinutes.toString().padStart(2, '0')}`;
     const endTime24HrString = `${endTimeHours.toString().padStart(2, '0')}:${endTimeMinutes.toString().padStart(2, '0')}`;
     const startTime12HrString = convertTo12HourFormat(startTime24HrString);
+    const endTime12HrString = convertTo12HourFormat(endTime24HrString);
 
     // calculate timestamp for reminder email sending
     const reminder1WeekTimestampTz = calculateReminderTimeStamp(
@@ -489,7 +492,8 @@ export async function updateReservation(
                     customerName: data.customerName,
                     restaurantName: data.restaurantName,
                     date: selectedDateStr,
-                    time: startTime12HrString,
+                    startTime: startTime12HrString,
+                    endTime: endTime12HrString,
                     guests: data.partySize,
                     address: data.restaurantAddress,
                     reservationLink: fullReservationLink,
@@ -577,6 +581,7 @@ export async function cancelReservation(
     });
 
     const startTimeIn12HrFormat = convertTo12HourFormat(reservation.timeslot_start);
+    const endTimeIn12HrFormat = convertTo12HourFormat(reservation.timeslot_end);
 
     try {
         await prisma.reservations.update({
@@ -590,12 +595,14 @@ export async function cancelReservation(
             customerName: reservation.customer_name!,
             restaurantName: reservation.business.name,
             date: dateInRestaurantTz,
-            time: startTimeIn12HrFormat,
+            startTime: startTimeIn12HrFormat,
+            endTime: endTimeIn12HrFormat,
             guests: reservation.party_size,
             address: reservation.business.address,
             restaurantSlug: reservation.business.slug,
             restaurantThumbnail: reservation.business.images[0],
-            baseUrl: getBaseUrl()
+            baseUrl: getBaseUrl(),
+            restaurantTimezone: reservation.business.timezone
         });
 
 

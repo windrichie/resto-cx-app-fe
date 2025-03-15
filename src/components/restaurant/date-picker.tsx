@@ -247,7 +247,8 @@ export default function DatePicker({
           reservation ? (
             <ModifyReservationForm
               selectedDate={selectedDate}
-              selectedTime={selectedSlot.start}
+              selectedTimeStart={selectedSlot.start}
+              selectedTimeEnd={selectedSlot.end}
               partySize={partySize}
               confirmationCode={confirmationCode ?? ''}
               restaurant={restaurant}
@@ -259,7 +260,8 @@ export default function DatePicker({
         ) : (
           <CreateReservationForm
             selectedDate={selectedDate}
-            selectedTime={selectedSlot.start}
+            selectedTimeStart={selectedSlot.start}
+            selectedTimeEnd={selectedSlot.end}
             partySize={partySize}
             restaurant={restaurant}
             timeSlotLengthMinutes={currentResSettings?.timeslot_length_minutes ?? 0}
