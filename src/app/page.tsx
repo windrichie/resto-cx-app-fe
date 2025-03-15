@@ -30,7 +30,7 @@ export default async function HomePage() {
             {restaurant.cuisine && (
               <p className="text-sm text-gray-600 mb-2">{restaurant.cuisine}</p>
             )}
-            <p className="text-gray-700">{restaurant.description}</p>
+            {/* <p className="text-gray-700">{restaurant.description}</p> */}
           </Link>
         ))}
       </div>

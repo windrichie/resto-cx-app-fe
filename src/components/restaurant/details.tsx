@@ -1,10 +1,13 @@
+'use client';
+
 import Image from 'next/image';
 import type { BusinessProfile, Product } from '@/types/index';
 import { sortOperatingHours } from '@/lib/actions/restaurant';
-import { Globe, MapPin, Phone } from 'lucide-react';
+import { Globe, MapPin, Phone, Menu, ChevronDown, ChevronUp } from 'lucide-react';
 import { OperatingHours } from '@/types/index';
 import Link from 'next/link';
-
+import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function RestaurantDetails({
     restaurant,
@@ -13,6 +16,7 @@ export default function RestaurantDetails({
     restaurant: BusinessProfile;
     products?: Product[];
 }) {
+    const [showHours, setShowHours] = useState(false);
     const operatingHours = restaurant.operating_hours as OperatingHours;
 
     const policies = [
@@ -24,14 +28,14 @@ export default function RestaurantDetails({
 
     return (
         <div>
-            <h2 className="text-2xl font-semibold mb-4">{restaurant.name}</h2>
+            {/* <h2 className="text-2xl font-semibold mb-4">{restaurant.name}</h2> */}
             {restaurant.images[0] && (
                 <Image
                     src={restaurant.images[0]}
                     alt={restaurant.name}
                     width={400}
                     height={300}
-                    className="rounded-lg mb-4"
+                    className="rounded-lg mb-4 w-full object-cover"
                 />
             )}
             <div className="space-y-3 mb-6">
@@ -67,42 +71,51 @@ export default function RestaurantDetails({
                 )}
 
                 <div className="flex items-center gap-2 text-gray-600">
-                    <svg
-                        className="h-5 w-5 flex-shrink-0"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                    </svg>
+                    <Menu className="h-5 w-5 flex-shrink-0" />
                     <Link
                         href={`/${restaurant.slug}/menu`}
                         className="hover:text-blue-600 transition-colors"
                     >
-                        Menu
+                        View Menu
                     </Link>
                 </div>
             </div>
 
-            <p className="mb-6">{restaurant.description}</p>
+            <div className="bg-gray-50 p-5 rounded-lg mb-6 prose max-w-none">
+                <ReactMarkdown>
+                    {restaurant.description}
+                </ReactMarkdown>
+            </div>
 
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <h3 className="font-semibold mb-3">Operating Hours:</h3>
-                <ul className="space-y-2 text-gray-600">
-                    {sortOperatingHours(operatingHours).map(([day, timeSlots]) => (
-                        <li key={day} className="flex flex-col sm:flex-row sm:justify-between">
-                            <span className="font-medium min-w-[100px]">{day}</span>
-                            <div className="flex flex-col items-start sm:items-end">
-                                {timeSlots.map((slot, index) => (
-                                    <span key={index} className="text-sm">
-                                        {slot}
-                                    </span>
-                                ))}
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                <button
+                    onClick={() => setShowHours(!showHours)}
+                    className="w-full flex items-center justify-between font-semibold"
+                >
+                    <span>Operating Hours</span>
+                    {showHours ? (
+                        <ChevronUp className="h-5 w-5" />
+                    ) : (
+                        <ChevronDown className="h-5 w-5" />
+                    )}
+                </button>
+
+                {showHours && (
+                    <ul className="space-y-2 text-gray-600 mt-3">
+                        {sortOperatingHours(operatingHours).map(([day, timeSlots]) => (
+                            <li key={day} className="flex flex-col sm:flex-row sm:justify-between">
+                                <span className="font-medium min-w-[100px]">{day}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                    {timeSlots.map((slot, index) => (
+                                        <span key={index} className="text-sm">
+                                            {slot}
+                                        </span>
+                                    ))}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
 
             {policies.length > 0 && (
