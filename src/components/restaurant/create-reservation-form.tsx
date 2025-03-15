@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckIcon, XIcon } from "lucide-react";
+import { Loader2, CheckIcon, XIcon, Clock, Users, Calendar } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +31,8 @@ import { z } from 'zod';
 
 interface ReservationFormProps {
   selectedDate: Date;
-  selectedTime: string;
+  selectedTimeStart: string;
+  selectedTimeEnd: string;
   partySize: number;
   restaurant: BusinessProfile;
   timeSlotLengthMinutes: number;
@@ -46,6 +47,7 @@ const CreateReservationSchema = z.object({
   date: z.date(),
   timeSlotLengthMinutes: z.number(),
   timeSlotStart: z.string(),
+  timeSlotEnd: z.string(),
   dietaryRestrictions: z.string().optional(),
   otherDietaryRestrictions: z.string().optional(),
   specialOccasion: z.string().optional(),
@@ -59,7 +61,7 @@ const CreateReservationSchema = z.object({
 });
 
 export default function CreateReservationForm({
-  selectedDate, selectedTime, partySize, restaurant, timeSlotLengthMinutes
+  selectedDate, selectedTimeStart, selectedTimeEnd, partySize, restaurant, timeSlotLengthMinutes
 }: ReservationFormProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -133,6 +135,7 @@ export default function CreateReservationForm({
       date: new Date(formData.get('date') as string),
       timeSlotLengthMinutes: parseInt(formData.get('timeSlotLengthMinutes') as string),
       timeSlotStart: formData.get('timeSlotStart'),
+      timeSlotEnd: formData.get('timeSlotEnd'),
       dietaryRestrictions: formData.get('dietaryRestrictions'),
       otherDietaryRestrictions: formData.get('otherDietaryRestrictions'),
       specialOccasion: formData.get('specialOccasion'),
@@ -174,7 +177,8 @@ export default function CreateReservationForm({
         <input type="hidden" name="selectedDate" value={selectedDate.getDate()} />
         <input type="hidden" name="selectedMonth" value={selectedDate.getMonth()} />
         <input type="hidden" name="selectedYear" value={selectedDate.getFullYear()} />
-        <input type="hidden" name="timeSlotStart" value={selectedTime} />
+        <input type="hidden" name="timeSlotStart" value={selectedTimeStart} />
+        <input type="hidden" name="timeSlotEnd" value={selectedTimeEnd} />
         <input type="hidden" name="partySize" value={partySize} />
         <input type="hidden" name="timeSlotLengthMinutes" value={timeSlotLengthMinutes} />
         <input type="hidden" name="restaurantTimezone" value={restaurant.timezone} />
@@ -190,9 +194,33 @@ export default function CreateReservationForm({
         )}
 
         <h3 className="text-xl font-semibold mb-4">Reservation Details</h3>
-        <p className="mb-4">
-          Date: {selectedDate.toDateString()}, Time: {selectedTime}, Party Size: {partySize}
-        </p>
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex items-center">
+              <Calendar className="h-5 w-5 text-gray-500 mr-2" />
+              <div>
+                <span className="text-sm text-gray-500">Date</span>
+                <p className="font-medium">{selectedDate.toDateString()}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <Clock className="h-5 w-5 text-gray-500 mr-2" />
+              <div>
+                <span className="text-sm text-gray-500">Time</span>
+                <p className="font-medium">{selectedTimeStart} - {selectedTimeEnd}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <Users className="h-5 w-5 text-gray-500 mr-2" />
+              <div>
+                <span className="text-sm text-gray-500">Party Size</span>
+                <p className="font-medium">{partySize} {partySize === 1 ? 'Guest' : 'Guests'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div>
           <Label htmlFor="customerName">Name</Label>
@@ -394,7 +422,7 @@ export default function CreateReservationForm({
                 Party of {partySize}
               </div>
               <div className="text-muted-foreground">
-                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurant.timezone})
+                {format(selectedDate, 'EEE')} · {selectedTimeStart} - {selectedTimeEnd} ({restaurant.timezone})
               </div>
             </div>
           </div>

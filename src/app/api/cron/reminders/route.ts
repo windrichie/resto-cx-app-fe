@@ -73,7 +73,8 @@ export async function GET(request: Request) {
                 // Format date and time
                 const reservationDate = new Date(reservation.date);
                 const formattedDate = format(reservationDate, 'PPP');
-                const formattedTime = convertTo12HourFormat(reservation.timeslot_start);
+                const formattedTimeStart = convertTo12HourFormat(reservation.timeslot_start);
+                const formattedTimeEnd = convertTo12HourFormat(reservation.timeslot_end);
 
                 // Generate reservation link
                 const mac = generateReservationMAC(
@@ -91,7 +92,8 @@ export async function GET(request: Request) {
                     customerName: reservation.customer_name,
                     restaurantName: reservation.business_profiles.name,
                     date: formattedDate,
-                    time: formattedTime,
+                    startTime: formattedTimeStart,
+                    endTime: formattedTimeEnd,
                     guests: reservation.party_size,
                     address: reservation.business_profiles.address,
                     reservationLink: fullReservationLink,

@@ -12,7 +12,8 @@ interface SendReservationEmailParams {
     customerName: string;
     restaurantName: string;
     date: string;
-    time: string;
+    startTime: string;
+    endTime: string;
     guests: number;
     address: string;
     // postalCode: string;
@@ -27,12 +28,14 @@ interface SendCancellationEmailParams {
     customerName: string;
     restaurantName: string;
     date: string;
-    time: string;
+    startTime: string;
+    endTime: string;
     guests: number;
     address: string;
     restaurantSlug: string;
     restaurantThumbnail: string;
     baseUrl: string;
+    restaurantTimezone: string;
 }
 
 interface SendReminderEmailParams {
@@ -41,7 +44,8 @@ interface SendReminderEmailParams {
     customerName: string;
     restaurantName: string;
     date: string;
-    time: string;
+    startTime: string;
+    endTime: string;
     guests: number;
     address: string;
     reservationLink: string;
@@ -55,7 +59,8 @@ export async function sendCreateOrModifyReservationEmail({
     customerName,
     restaurantName,
     date,
-    time,
+    startTime,
+    endTime,
     guests,
     address,
     // postalCode,
@@ -70,7 +75,8 @@ export async function sendCreateOrModifyReservationEmail({
             customerName,
             restaurantName,
             date,
-            time,
+            startTime,
+            endTime,
             guests,
             address,
             // postalCode,
@@ -107,11 +113,13 @@ export async function sendCancellationEmail({
     customerName,
     restaurantName,
     date,
-    time,
+    startTime,
+    endTime,
     guests,
     address,
     restaurantSlug,
     restaurantThumbnail,
+    restaurantTimezone,
     baseUrl
 }: SendCancellationEmailParams) {
     const emailHtml = await render(
@@ -119,12 +127,14 @@ export async function sendCancellationEmail({
             customerName,
             restaurantName,
             date,
-            time,
+            startTime,
+            endTime,
             guests,
             address,
             restaurantSlug,
             restaurantThumbnail,
-            baseUrl
+            baseUrl,
+            restaurantTimezone
         })
     );
 
@@ -142,7 +152,8 @@ export async function sendReservationReminderEmail({
     customerName,
     restaurantName,
     date,
-    time,
+    startTime,
+    endTime,
     guests,
     address,
     reservationLink,
@@ -155,7 +166,8 @@ export async function sendReservationReminderEmail({
             customerName,
             restaurantName,
             date,
-            time,
+            startTime,
+            endTime,
             guests,
             address,
             reservationLink,

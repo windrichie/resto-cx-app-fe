@@ -4,7 +4,7 @@
 import { useState, useEffect, useActionState, startTransition } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckIcon, XIcon } from "lucide-react";
+import { Loader2, CheckIcon, XIcon, Calendar, Clock, Users } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -22,7 +22,8 @@ import { z } from 'zod';
 
 interface ModifyReservationFormProps {
     selectedDate: Date;
-    selectedTime: string;
+    selectedTimeStart: string;
+    selectedTimeEnd: string;
     partySize: number;
     restaurant: BusinessProfile;
     confirmationCode: string;
@@ -48,7 +49,8 @@ const UpdateReservationSchema = z.object({
 
 export default function ModifyReservationForm({
     selectedDate,
-    selectedTime,
+    selectedTimeStart,
+    selectedTimeEnd,
     partySize,
     confirmationCode,
     restaurant,
@@ -187,7 +189,8 @@ export default function ModifyReservationForm({
                 <input type="hidden" name="selectedDate" value={selectedDate.getDate()} />
                 <input type="hidden" name="selectedMonth" value={selectedDate.getMonth()} />
                 <input type="hidden" name="selectedYear" value={selectedDate.getFullYear()} />
-                <input type="hidden" name="timeSlotStart" value={selectedTime} />
+                <input type="hidden" name="timeSlotStart" value={selectedTimeStart} />
+                <input type="hidden" name="timeSlotEnd" value={selectedTimeEnd} />
                 <input type="hidden" name="partySize" value={partySize} />
                 <input type="hidden" name="timeSlotLengthMinutes" value={timeSlotLengthMinutes} />
                 {/* <input type="hidden" name="reservationSettings" value={JSON.stringify(restaurant.reservation_settings)} /> */}
@@ -206,9 +209,34 @@ export default function ModifyReservationForm({
                 )}
 
                 <h3 className="text-xl font-semibold mb-4">Update Reservation Details</h3>
-                <p className="mb-4">
-                    Date: {selectedDate.toDateString()}, Time: {selectedTime}, Party Size: {partySize}
-                </p>
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="flex items-center">
+                            <Calendar className="h-5 w-5 text-gray-500 mr-2" />
+                            <div>
+                                <span className="text-sm text-gray-500">Date</span>
+                                <p className="font-medium">{selectedDate.toDateString()}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center">
+                            <Clock className="h-5 w-5 text-gray-500 mr-2" />
+                            <div>
+                                <span className="text-sm text-gray-500">Time</span>
+                                <p className="font-medium">{selectedTimeStart} - {selectedTimeEnd}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center">
+                            <Users className="h-5 w-5 text-gray-500 mr-2" />
+                            <div>
+                                <span className="text-sm text-gray-500">Party Size</span>
+                                <p className="font-medium">{partySize} {partySize === 1 ? 'Guest' : 'Guests'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
                 {restaurant.is_deposit_required && (
                     <>
@@ -321,7 +349,7 @@ export default function ModifyReservationForm({
                                 Party of {partySize}
                             </div>
                             <div className="text-muted-foreground">
-                                {format(selectedDate, 'EEE')} · {selectedTime} ({restaurant.timezone})
+                                {format(selectedDate, 'EEE')} · {selectedTimeStart} - {selectedTimeEnd} ({restaurant.timezone})
                             </div>
                         </div>
                     </div>
