@@ -35,10 +35,10 @@ export default async function RestaurantPage({
     const products = await getRestaurantProducts(restaurant.id);
 
     return (
-        <main className="container mx-auto px-8 py-12 max-w-5xl">
-            <div className="pl-24"> {/* Add left padding to account for fixed back button */}
+        <main className="container mx-auto px-8 py-12 max-w-6xl">
+            <div className="pl-24">
                 <h1 className="text-4xl font-bold mb-8">{restaurant.name}</h1>
-                <div className="grid md:grid-cols-2 gap-40">
+                <div className="grid md:grid-cols-2 gap-16">
                     <RestaurantDetails 
                         restaurant={restaurant}
                         products={products}
